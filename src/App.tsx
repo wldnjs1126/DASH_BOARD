@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import {
-  Activity, ArrowDownUp, ArrowRight, BedDouble, Box, CalendarClock, ChevronDown, Clock3, DoorOpen,
-  Footprints, Layers3, LogOut, MapPin, Maximize, Minimize, Moon, Pause, Play, Radio,
+  ArrowDownUp, BedDouble, Box, CalendarClock, ChevronDown, Clock3, DoorOpen,
+  Footprints, Layers3, LogOut, MapPin, Maximize, Minimize, Moon, Pause, Play,
   RotateCcw, ShieldAlert, ShieldCheck, TriangleAlert, UserRound, Waves, X, Zap,
 } from 'lucide-react'
 import { Brand } from './Brand.tsx'
 import { CARE_PAGES, CareSidebar } from './CareSidebar.tsx'
 import { DailyReport } from './DailyReport.tsx'
+import { AlertHistory, InstitutionAlert, InstitutionOverview, InstitutionSettings, RoomDetailHeader, RoomDetails } from './Institution.tsx'
+import { InstitutionLogin } from './InstitutionLogin.tsx'
+import { ALERTS, INSTITUTION_DATE, ROOMS } from './institutionData.ts'
+import type { CareEvent } from './institutionData.ts'
 import { Landing } from './Landing.tsx'
 import { ROOM_SIZE } from './room.ts'
 import { Room3D } from './Room3D.tsx'
@@ -20,61 +24,16 @@ import type { Subject, SubjectDetails, SubjectDirectory } from './subjectDirecto
 import { Subjects } from './Subjects.tsx'
 import { FloorPlan, PanelHeading, SignalChart, ViewDialog } from './visuals.tsx'
 import './care-workspace.css'
+import './institution.css'
 
 const ICONS = [UserRound, DoorOpen, Footprints, Clock3, BedDouble, Moon, LogOut]
-const DASHBOARD_TITLE = CARE_PAGES.dashboard.label
+const SESSION_KEY = 'carewave.institution.session'
 const INITIAL_TIME = 5.8
-const SESSION_KEY = 'carewave.demo.operator'
 const TIME_ZONE = 'Asia/Seoul'
 const clockFormatter = new Intl.DateTimeFormat('ko-KR', { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })
 const dateFormatter = new Intl.DateTimeFormat('ko-KR', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' })
 const timeLabel = (time: number) => clockFormatter.format(time)
 const dateTimeLabel = (time: number) => `${dateFormatter.format(time)} ${timeLabel(time)}`
-
-function getOperator() {
-  try {
-    return sessionStorage.getItem(SESSION_KEY) ?? ''
-  } catch {
-    return ''
-  }
-}
-
-function Login({ onEnter }: { onEnter: (operator: string) => void }) {
-  const [name, setName] = useState('시연 운영자')
-  const scenario = SCENARIO_BY_ID.movement
-  const { sample } = frameAt(scenario, INITIAL_TIME)
-
-  function enter(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (name.trim()) onEnter(name.trim())
-  }
-
-  return <div className="entry-page">
-    <header className="entry-header"><a href="#top" className="dashboard-home"><Brand /></a><span className="mode-badge"><Radio size={14} /> 시뮬레이션 모드</span></header>
-    <main className="entry-layout">
-      <section className="entry-content">
-        <span className="entry-kicker"><Activity size={16} /> 병실 모니터링</span>
-        <h1 tabIndex={-1}>CareWave<br />{DASHBOARD_TITLE}</h1>
-        <p>병실 내 움직임과 이상 이벤트를 재생하고<br className="desktop-break" /> 위치, 높이, 이동속도의 변화를 확인하세요.</p>
-        <form onSubmit={enter}>
-          <label htmlFor="operator">운영자 이름</label>
-          <div className="entry-input"><UserRound size={18} /><input id="operator" name="operator" value={name}
-            onChange={event => setName(event.target.value)} maxLength={24} required autoComplete="off" /></div>
-          <button className="entry-submit" disabled={!name.trim()}>시뮬레이션 시작 <ArrowRight size={18} /></button>
-        </form>
-        <small>시연용 입장 화면 · 가상 대상자 데이터 사용</small>
-      </section>
-      <div className="entry-preview" aria-hidden="true">
-        <div className="preview-label"><span><Layers3 size={17} /> 병실 A-01</span><span className="live-pill"><i /> 재실</span></div>
-        <FloorPlan sample={sample} history={historyAt(scenario, INITIAL_TIME)} risk="normal" />
-        <div className="preview-signal"><Activity size={20} /><svg viewBox="0 0 265 35" preserveAspectRatio="none">
-          <path d="M0 25h28l10-4 8 5 10-17 10 22 9-14 8 7 19 1 13-7 9 3 8-15 10 26 10-14 8 6h17l11-4 8 6 10-18 11 22 9-10 8 3h21"
-            fill="none" stroke="#4195e8" strokeWidth="2" strokeLinejoin="round" />
-        </svg><span>{sample.z.toFixed(2)} <small>m</small></span></div>
-      </div>
-    </main>
-  </div>
-}
 
 function useReplay() {
   const [scenario, setScenario] = useState(SCENARIO_BY_ID.movement)
@@ -165,11 +124,8 @@ function WarningDialog({ detection, subject, close }: { detection: Detection; su
   </dialog>
 }
 
-type DashboardProps = { embedded: true } | { embedded?: false; subject: Subject; operator: string; logout: () => void }
-
-function Dashboard(props: DashboardProps) {
-  const { embedded } = props
-  const subject = props.embedded ? DEMO_SUBJECT : props.subject
+function TechnologyDemo() {
+  const subject = DEMO_SUBJECT
   const replay = useReplay()
   const { scenario, time, startedAt, playing, rate, acknowledged, start, toggle, seek, setRate, acknowledge } = replay
   const { sample } = frameAt(scenario, time)
@@ -179,60 +135,31 @@ function Dashboard(props: DashboardProps) {
   const showWarning = detection && !acknowledged && (scenario.category === 'fall' || scenario.id === 'night')
   const zone = ZONE[sample.zone].label
   const ended = time >= scenario.duration
-  const [full, setFull] = useState(false)
-  const [presentation, setPresentation] = useState(false)
   const [expandedView, setExpandedView] = useState<'plan' | 'cloud' | null>(null)
-  const [wallTime, setWallTime] = useState(Date.now)
-  const presentationActive = full || presentation
+  const demo = useRef<HTMLDivElement>(null)
+  const [presenting, setPresenting] = useState(false)
 
   useEffect(() => {
-    if (embedded) return
-    const handleFull = () => setFull(Boolean(document.fullscreenElement))
-    document.addEventListener('fullscreenchange', handleFull)
-    const timer = window.setInterval(() => setWallTime(Date.now()), 1000)
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFull)
-      window.clearInterval(timer)
-    }
-  }, [embedded])
+    const syncFullscreen = () => setPresenting(document.fullscreenElement === demo.current)
+    document.addEventListener('fullscreenchange', syncFullscreen)
+    return () => document.removeEventListener('fullscreenchange', syncFullscreen)
+  }, [])
 
-  async function fullscreen() {
-    if (presentation) {
-      setPresentation(false)
-      return
-    }
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen()
-      else await document.documentElement.requestFullscreen()
-    } catch {
-      if (!document.fullscreenElement) setPresentation(true)
+  async function toggleFullscreen() {
+    if (document.fullscreenElement === demo.current && document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => {})
+    } else if (presenting) {
+      setPresenting(false)
+    } else {
+      try { await demo.current?.requestFullscreen() } catch { setPresenting(true) }
     }
   }
 
-  function exit() {
-    if (props.embedded) return
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
-    props.logout()
-  }
-
-  const Workspace = embedded ? 'div' : 'main'
-  const Title = embedded ? 'h3' : 'h1'
-  return <div className={`dashboard ${embedded ? 'dashboard-embedded' : ''} ${presentationActive ? 'is-presenting' : ''}`}>
-    {!props.embedded && <header className="app-header">
-      <div className="header-brand"><Brand /><span className="brand-description">시니어 생활패턴 위험감지</span></div>
-      <div className="header-tools">
-        <span className="wall-time">{dateTimeLabel(wallTime)}</span>
-        <span className="mode-badge"><Radio size={14} /> 시뮬레이션 모드</span>
-        <button className="fullscreen-button" onClick={() => void fullscreen()} aria-pressed={presentationActive}
-          aria-label={presentation ? '발표 모드 종료' : full ? '전체 화면 종료' : '전체 화면'}>
-          {presentationActive ? <Minimize size={16} /> : <Maximize size={16} />}
-          <span>{presentation ? '발표 모드 종료' : full ? '전체 화면 종료' : '전체 화면'}</span>
-        </button>
-        <button className="icon-button logout-button" onClick={exit} aria-label="시연 종료" title={`${props.operator} · 시연 종료`}><LogOut size={17} /></button>
-      </div>
-    </header>}
-    <Workspace className="workspace">
-      <div className="page-title"><Title tabIndex={-1}>{DASHBOARD_TITLE}</Title><span className="dashboard-subject"><UserRound size={15} /> {subject.name} <i /> <MapPin size={15} /> {subject.room} <i /> {ROOM_SIZE}</span></div>
+  return <div ref={demo} className={`dashboard dashboard-embedded${presenting ? ' technology-presenting' : ''}`}>
+    <div className="workspace">
+      <div className="page-title"><h3>병실 모니터링 시연</h3><span className="dashboard-subject"><UserRound size={15} /> {subject.name} <i /> <MapPin size={15} /> {subject.room} <i /> {ROOM_SIZE}
+        <button type="button" className="view-expand" onClick={() => void toggleFullscreen()}>{presenting ? <Minimize size={13} /> : <Maximize size={13} />}{presenting ? '전체 화면 종료' : '전체 화면'}</button>
+      </span></div>
 
       <section className="metrics" aria-label="상태 요약">
         <Metric icon={<UserRound />} label="현재 재실 상태" sub={sample.presence ? '병실 내 1명' : '병실 내 0명'}>
@@ -304,7 +231,7 @@ function Dashboard(props: DashboardProps) {
         <SignalChart icon={<Footprints />} label="이동속도 추이" field="speed" unit="m/s" color="#358ce7" max={1.5}
           history={history} duration={scenario.duration} detection={detection} elapsed={time} />
       </section>
-    </Workspace>
+    </div>
     {expandedView === 'plan' && <ViewDialog title="실증 공간 배치도" closeLabel="배치도 닫기" close={() => setExpandedView(null)}>
       <FloorPlan sample={sample} history={history} risk={risk} />
     </ViewDialog>}
@@ -319,15 +246,36 @@ function readRoute() {
   return window.location.hash.slice(1)
 }
 
+function readSession() {
+  try { return sessionStorage.getItem(SESSION_KEY) === 'active' } catch { return false }
+}
+
+function readConfirmations(): string[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem('carewave.institution.confirmed') ?? '[]')
+    return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : []
+  } catch { return [] }
+}
+
 export function App() {
   const [route, setRoute] = useState(readRoute)
-  const [operator, setOperator] = useState(getOperator)
+  const [signedIn, setSignedIn] = useState(readSession)
   const [directory, setDirectory] = useState(readDirectory)
   const [storageError, setStorageError] = useState(false)
   const [sidebarExpanded, setSidebarExpanded] = useState(() => window.matchMedia('(min-width: 721px)').matches)
-  const screen = route === 'subjects' ? 'subjects' : route === 'daily-report' ? 'report' : route === 'demo' ? 'dashboard' : route === 'demo-entry' ? 'entry' : 'landing'
-  const previousScreen = useRef(screen)
+  const [confirmedIds, setConfirmedIds] = useState(readConfirmations)
+  const [activeAlert, setActiveAlert] = useState<CareEvent | null>(null)
+  const [autoAlerts, setAutoAlerts] = useState(() => {
+    try { return localStorage.getItem('carewave.institution.auto-alerts') === 'on' } catch { return false }
+  })
+  const room = route.startsWith('room/') ? ROOMS.find(entry => entry.id === route.slice(5)) : undefined
+  const page = room || route === 'demo' || route.startsWith('room/') ? 'dashboard' : route === 'subjects' ? 'subjects' : route === 'daily-report' ? 'report' : route === 'alerts' ? 'alerts' : route === 'settings' ? 'settings' : null
+  const showLogin = route === 'login' || route === 'demo-entry' || Boolean(page && !signedIn)
+  const screen = showLogin ? 'login' : page ?? 'landing'
+  const previousScreen = useRef(`${screen}/${room?.id ?? ''}`)
   const selected = directory.subjects.find(subject => subject.id === directory.selectedId) ?? null
+  const isConfirmed = (event: CareEvent) => event.confirmed || confirmedIds.includes(event.id)
+  const pendingAlerts = ALERTS.filter(event => !isConfirmed(event))
 
   useEffect(() => {
     const syncRoute = () => setRoute(readRoute())
@@ -336,28 +284,49 @@ export function App() {
   }, [])
 
   useEffect(() => {
-    const title = screen === 'landing' ? '비카메라 시니어 돌봄' : screen === 'report' ? '하루 생활 분석 리포트' : screen === 'subjects' ? CARE_PAGES.subjects.label : DASHBOARD_TITLE
+    const title = screen === 'landing' ? '비카메라 시니어 돌봄' : screen === 'login' ? '로그인' : room ? `${room.id}호 상세정보` : CARE_PAGES[screen].label
     document.title = `CareWave | ${title}`
-    if (previousScreen.current !== screen) {
-      previousScreen.current = screen
+    const screenKey = `${screen}/${room?.id ?? ''}`
+    if (previousScreen.current !== screenKey) {
+      previousScreen.current = screenKey
       if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
-      document.querySelector<HTMLElement>('main h1')?.focus({ preventScroll: true })
+      document.querySelector<HTMLElement>('h1[tabindex="-1"]')?.focus({ preventScroll: true })
     }
 
     // Hash targets may mount only after the hash change, such as on browser Back.
-    const target = screen === 'landing' && route ? document.getElementById(route) : null
+    const target = screen === 'landing' && route ? document.getElementById(route === 'dashboard' ? 'technology' : route) : null
     if (target) target.scrollIntoView()
     else window.scrollTo(0, 0)
-  }, [route, screen])
+  }, [route, screen, room])
 
-  function setSession(name: string) {
-    setOperator(name)
+  function setSession(active: boolean) {
+    setSignedIn(active)
     try {
-      if (name) sessionStorage.setItem(SESSION_KEY, name)
+      if (active) sessionStorage.setItem(SESSION_KEY, 'active')
       else sessionStorage.removeItem(SESSION_KEY)
     } catch {
       // The in-memory session still works when browser storage is blocked.
     }
+  }
+
+  function signOut() {
+    setSession(false)
+    setActiveAlert(null)
+    window.location.hash = 'login'
+  }
+
+  function confirmAlert(event: CareEvent) {
+    if (!isConfirmed(event)) {
+      const next = [...confirmedIds, event.id]
+      setConfirmedIds(next)
+      try { localStorage.setItem('carewave.institution.confirmed', JSON.stringify(next)) } catch { setStorageError(true) }
+    }
+    setActiveAlert(null)
+  }
+
+  function updateAutoAlerts(value: boolean) {
+    setAutoAlerts(value)
+    try { localStorage.setItem('carewave.institution.auto-alerts', value ? 'on' : 'off') } catch { setStorageError(true) }
   }
 
   function updateDirectory(next: SubjectDirectory) {
@@ -381,29 +350,33 @@ export function App() {
     updateDirectory({ subjects, selectedId: directory.selectedId === id ? subjects[0]?.id ?? null : directory.selectedId })
   }
 
-  if (screen === 'entry') return <Login onEnter={name => { setSession(name); window.location.hash = 'demo' }} />
-  if (screen === 'landing') return <Landing dashboardPreview={<Dashboard embedded />} />
+  if (screen === 'login') return <InstitutionLogin onEnter={() => {
+    setSession(true)
+    if (!page) window.location.hash = 'demo'
+    if (autoAlerts && (!page || (page === 'dashboard' && !room))) {
+      setActiveAlert(pendingAlerts.find(event => event.level === 'danger' || event.level === 'caution') ?? null)
+    }
+  }} />
+  if (screen === 'landing') return <Landing dashboardPreview={<TechnologyDemo />} signedIn={signedIn} />
 
-  return <div className={`care-shell${sidebarExpanded ? '' : ' care-shell-collapsed'}`}>
+  return <div className={`care-shell institution-shell${sidebarExpanded ? '' : ' care-shell-collapsed'}`}>
     <CareSidebar page={screen} expanded={sidebarExpanded} toggle={() => setSidebarExpanded(current => !current)} navigate={() => {
       if (window.matchMedia('(max-width: 720px)').matches) setSidebarExpanded(false)
     }} />
     <div className="care-content">
       {storageError && <p className="care-storage-error" role="status">브라우저 저장소를 사용할 수 없어 변경 내용이 이 탭에서만 유지됩니다.</p>}
-      {screen === 'dashboard' && selected ? <Dashboard key={selected.id} subject={selected} operator={operator || '시연 운영자'} logout={() => {
-        setSession('')
-        window.location.hash = 'top'
-      }} /> : <>
-        <header className="app-header"><Brand /></header>
-        {screen === 'subjects' && <Subjects subjects={directory.subjects} selected={selected} select={id => updateDirectory({ ...directory, selectedId: id })}
-          save={saveSubject} remove={removeSubject} />}
-        {screen === 'report' && <DailyReport subject={selected} />}
-        {screen === 'dashboard' && <main className="subjects-page">
-          <h1 tabIndex={-1}>{DASHBOARD_TITLE}</h1>
-          <section className="panel subject-empty"><UserRound size={25} /><h2>모니터링할 대상자가 없습니다</h2>
-            <a className="subject-button subject-primary" href="#subjects">대상자 정보 열기</a></section>
-        </main>}
-      </>}
+      {room ? <RoomDetailHeader room={room} /> : <header className="institution-header">
+        <div><p className="institution-header-title">비카메라 센서 기반 시니어 생활패턴 AI 위험감지 서비스</p><p className="institution-header-subtitle">관리자 대시보드 · 기관용 시연</p></div>
+        <div className="institution-header-actions"><time className="institution-clock">{INSTITUTION_DATE} (금) 14:32</time>
+          <button type="button" className="icon-button institution-signout" title="로그아웃" aria-label="로그아웃" onClick={signOut}><LogOut size={17} /></button></div>
+      </header>}
+      {screen === 'dashboard' && (room ? <RoomDetails key={room.id} room={room} isConfirmed={isConfirmed} /> : <InstitutionOverview pendingAlerts={pendingAlerts} openAlert={setActiveAlert} />)}
+      {screen === 'subjects' && <Subjects subjects={directory.subjects} selected={selected} select={id => updateDirectory({ ...directory, selectedId: id })}
+        save={saveSubject} remove={removeSubject} />}
+      {screen === 'report' && <DailyReport subject={selected} />}
+      {screen === 'alerts' && <AlertHistory isConfirmed={isConfirmed} openAlert={setActiveAlert} confirm={confirmAlert} />}
+      {screen === 'settings' && <InstitutionSettings autoAlerts={autoAlerts} setAutoAlerts={updateAutoAlerts} signOut={signOut} />}
     </div>
+    {activeAlert && <InstitutionAlert key={activeAlert.id} event={activeAlert} close={() => setActiveAlert(null)} confirm={() => confirmAlert(activeAlert)} />}
   </div>
 }

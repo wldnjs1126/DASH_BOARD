@@ -62,6 +62,7 @@ const exampleResidents = [
 
 const detailsLinks = [
   ['service', '서비스 소개'],
+  ['technology', '기술 소개'],
   ['how-it-works', '작동 방식'],
   ['features', '감지 이벤트'],
   ['ai-analysis', 'AI 분석'],
@@ -74,8 +75,8 @@ function RiskBadge({ risk }: { risk: typeof riskLevels[number] }) {
   return <span className={`landing-risk landing-risk-${risk.level}`}>{risk.label}</span>
 }
 
-function DemoLink({ children, light = false }: { children: string; light?: boolean }) {
-  return <a className={`landing-action ${light ? 'landing-action-light' : ''}`} href="#demo">{children}<ArrowRight size={17} aria-hidden="true" /></a>
+function LandingAction({ children, href, light = false }: { children: string; href: string; light?: boolean }) {
+  return <a className={`landing-action ${light ? 'landing-action-light' : ''}`} href={href}>{children}<ArrowRight size={17} aria-hidden="true" /></a>
 }
 
 function RoomPreview() {
@@ -128,17 +129,20 @@ function RoomPreview() {
   </div>
 }
 
-export function Landing({ dashboardPreview }: { dashboardPreview: ReactNode }) {
+export function Landing({ dashboardPreview, signedIn }: { dashboardPreview: ReactNode; signedIn: boolean }) {
+  const entry = signedIn ? '#demo' : '#login'
+  const entryLabel = signedIn ? '대시보드' : '로그인'
   return <div className="landing" id="top">
     <header className="landing-header">
       <div className="landing-shell landing-nav">
         <a className="landing-brand" href="#top" aria-label="CareWave 처음으로"><Brand /></a>
         <nav aria-label="서비스 소개 메뉴">
           <a href="#service">서비스 소개</a>
+          <a href="#technology">기술 소개</a>
           <a href="#features">감지 이벤트</a>
           <a href="#ai-analysis">AI 분석</a>
         </nav>
-        <DemoLink>사용해보기</DemoLink>
+        <LandingAction href={entry}>{entryLabel}</LandingAction>
       </div>
     </header>
     <main>
@@ -149,7 +153,7 @@ export function Landing({ dashboardPreview }: { dashboardPreview: ReactNode }) {
           <h1 id="landing-title" tabIndex={-1}>카메라 없이<br />생활 변화를<br className="landing-hero-break" /> <em>살핍니다</em></h1>
           <p className="landing-lead">CareWave는 센서로 움직임을 감지하고 AI로 평소와 다른 생활 변화를 분석합니다. 기관 관리자와 보호자는 낙상 의심과 야간이탈 신호를 한눈에 확인할 수 있습니다.</p>
           <div className="landing-hero-actions">
-            <DemoLink light>사용해보기</DemoLink>
+            <LandingAction href={entry} light>{entryLabel}</LandingAction>
             <a className="landing-text-link" href="#service">서비스 살펴보기 <ArrowDown size={15} aria-hidden="true" /></a>
           </div>
           <p className="landing-demo-note"><Play size={13} aria-hidden="true" /> 가상 병실에서 11개 이벤트를 직접 재생할 수 있습니다.</p>
@@ -189,6 +193,18 @@ export function Landing({ dashboardPreview }: { dashboardPreview: ReactNode }) {
             </li>,
           )}
         </ol>
+      </section>
+
+      <section id="technology" className="landing-shell landing-detail-section" aria-labelledby="technology-title">
+        <div className="landing-section-heading">
+          <p className="landing-kicker">기술 소개</p>
+          <h2 id="technology-title">레이더가 감지한 움직임을 2D·3D로 확인합니다</h2>
+          <p>이벤트를 선택하면 실증 공간의 이동 경로, 3D 점군, 높이와 속도 그래프가 같은 시간에 바뀝니다.</p>
+        </div>
+        <div className="landing-dashboard-frame">
+          <div className="landing-dashboard-bar"><span className="landing-sample"><Play size={13} aria-hidden="true" /> 시뮬레이션 모드</span></div>
+          {dashboardPreview}
+        </div>
       </section>
 
       <section id="features" className="landing-service" aria-labelledby="features-title">
@@ -246,14 +262,7 @@ export function Landing({ dashboardPreview }: { dashboardPreview: ReactNode }) {
         <div className="landing-section-heading">
           <p className="landing-kicker">통합 모니터링</p>
           <h2 id="monitoring-title">대상자 현황과 위험 알림을 한곳에서</h2>
-          <p>아래에서 이벤트를 선택하면 실증 공간의 2D 배치도, 3D 점군, 위험도와 그래프가 함께 바뀝니다. 대상자별 상태와 위험 알림을 모아 보는 관리 화면 예시도 확인할 수 있습니다.</p>
-        </div>
-        <div className="landing-dashboard-frame">
-          <div className="landing-dashboard-bar">
-            <span className="landing-sample"><Play size={13} aria-hidden="true" /> 가상 데이터로 체험</span>
-            <DemoLink>대시보드 크게 보기</DemoLink>
-          </div>
-          {dashboardPreview}
+          <p>기관 관리자는 병실별 위험도, 센서 운영 상태와 확인이 필요한 알림을 살펴볼 수 있습니다.</p>
         </div>
         <div className="landing-detail-grid landing-monitor-grid">
           <article className="landing-detail-card">
@@ -292,13 +301,13 @@ export function Landing({ dashboardPreview }: { dashboardPreview: ReactNode }) {
           <h2 id="landing-final-title">낙상 의심은 화면에 어떻게 표시될까요?</h2>
           <p>시뮬레이션에서 <strong>일반 낙상</strong>을 선택해 위치, 높이 그래프, 위험 경고가 함께 바뀌는 모습을 확인해보세요.</p>
         </div>
-        <DemoLink light>사용해보기</DemoLink>
+        <LandingAction href="#technology" light>기술 소개 보기</LandingAction>
       </section>
     </main>
     <footer className="landing-shell landing-footer">
       <a className="landing-brand" href="#top" aria-label="CareWave 처음으로"><Brand /></a>
       <p>비카메라 센서 기반 시니어 생활패턴 AI 위험감지 서비스 개발 및 실증</p>
-      <a href="#demo-entry">운영자 이름으로 입장 <ChevronRight size={15} aria-hidden="true" /></a>
+      <a href={entry}>{entryLabel} <ChevronRight size={15} aria-hidden="true" /></a>
     </footer>
   </div>
 }

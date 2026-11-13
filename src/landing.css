@@ -177,8 +177,9 @@
 .landing-event-list p, .landing-detail-card p { margin-top: 6px; color: var(--landing-muted); font-size: 14px; line-height: 1.62; }
 .landing-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 22px; }
 .landing-monitor-grid { grid-template-columns: 1.45fr 1fr; }
+.landing-dashboard-notice { margin: 20px 0 9px; color: var(--landing-muted); font-size: 13px; line-height: 1.6; text-align: end; }
 .landing-dashboard-frame {
-  margin-top: 22px; border: 1px solid #cddfec; border-radius: 14px; overflow: hidden;
+  border: 1px solid #cddfec; border-radius: 14px; overflow: hidden;
   background: #edf5fc; box-shadow: 0 6px 23px #21496313;
 }
 .landing-dashboard-bar {
@@ -187,7 +188,6 @@
 }
 .landing-dashboard-bar .landing-sample { display: inline-flex; align-items: center; gap: 5px; }
 .landing-dashboard-bar p { color: var(--landing-muted); font-size: 13px; line-height: 1.6; }
-.landing-dashboard-notice { margin-inline-start: auto; text-align: end; }
 .landing-dashboard-instructions { flex: 1 0 100%; }
 .landing-dashboard-bar strong { color: #164e79; }
 .dashboard.dashboard-embedded { height: auto; min-height: 0; container-type: inline-size; }

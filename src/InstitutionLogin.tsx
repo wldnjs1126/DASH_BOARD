@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { Brand } from './Brand.tsx'
-import { isDemoLogin } from './institutionData.ts'
+import { DEMO_CREDENTIAL, isDemoLogin } from './institutionData.ts'
 
 export function InstitutionLogin({ onEnter }: { onEnter: () => void }) {
   const [error, setError] = useState(false)
@@ -30,11 +30,11 @@ export function InstitutionLogin({ onEnter }: { onEnter: () => void }) {
         <p className="login-intro">기관 관리자 로그인</p>
         <form onSubmit={submit} onChange={() => setError(false)}>
           <label htmlFor="carewave-id">아이디</label>
-          <input id="carewave-id" name="id" placeholder="carewave를 입력하세요" autoCapitalize="none" spellCheck={false} autoComplete="off" required />
+          <input id="carewave-id" name="id" defaultValue={DEMO_CREDENTIAL} autoCapitalize="none" spellCheck={false} autoComplete="off" required />
           <label htmlFor="carewave-password">비밀번호</label>
-          <input id="carewave-password" name="password" type="password" placeholder="carewave를 입력하세요" autoComplete="off" required />
-          {error && <p className="login-error" role="alert">아이디와 비밀번호에 각각 carewave를 입력해 주세요.</p>}
-          <button className="institution-primary login-submit" type="submit">로그인 <ArrowRight size={16} aria-hidden="true" /></button>
+          <input id="carewave-password" name="password" type="password" defaultValue={DEMO_CREDENTIAL} autoComplete="off" required />
+          {error && <p className="login-error" role="alert">아이디 또는 비밀번호가 올바르지 않습니다.</p>}
+          <button className="institution-primary login-submit" type="submit" autoFocus>로그인 <ArrowRight size={16} aria-hidden="true" /></button>
         </form>
         <p className="login-note">기관용 대시보드 체험 계정</p>
         <a href="#top" className="login-return"><ArrowLeft size={15} />서비스 소개</a>

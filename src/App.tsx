@@ -296,7 +296,8 @@ export function App() {
     if (previousScreen.current !== screenKey) {
       previousScreen.current = screenKey
       if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
-      document.querySelector<HTMLElement>('h1[tabindex="-1"]')?.focus({ preventScroll: true })
+      const focusTarget = screen === 'login' ? '.login-submit' : 'h1[tabindex="-1"]'
+      document.querySelector<HTMLElement>(focusTarget)?.focus({ preventScroll: true })
     }
 
     // Hash targets may mount only after the hash change, such as on browser Back.

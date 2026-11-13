@@ -1,11 +1,10 @@
-import { Activity, Bell, FileBarChart, House, PanelLeftClose, PanelLeftOpen, Settings, UsersRound } from 'lucide-react'
+import { Activity, Bell, House, PanelLeftClose, PanelLeftOpen, Settings, UsersRound } from 'lucide-react'
 import { Brand } from './Brand.tsx'
 
 export const CARE_PAGES = {
   dashboard: { href: '#demo', label: '실시간 모니터링', icon: Activity },
   subjects: { href: '#subjects', label: '대상자 관리', icon: UsersRound },
   alerts: { href: '#alerts', label: '알림 내역', icon: Bell },
-  report: { href: '#daily-report', label: '생활 리포트', icon: FileBarChart },
   settings: { href: '#settings', label: '설정', icon: Settings },
 } as const
 

@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { MapPin, Pencil, Plus, Trash2, UserRound } from 'lucide-react'
+import { ChevronRight, Pencil, Plus, Trash2, UserRound } from 'lucide-react'
+import { roomLabelKey, roomSubject } from './facilityRooms.ts'
+import { roomHref, roomLabel } from './institutionData.ts'
+import type { RoomRecord } from './institutionData.ts'
 import { EMPTY_DETAILS } from './subjectDirectory.ts'
-import type { Subject, SubjectDetails } from './subjectDirectory.ts'
+import type { SubjectDetails } from './subjectDirectory.ts'
 import { ViewDialog } from './visuals.tsx'
 
 const fields = [
-  { key: 'name', label: '이름', required: true, maxLength: 40 },
-  { key: 'room', label: '호실', required: true, maxLength: 30 },
+  { key: 'room', label: '호실 이름', required: true, maxLength: 30 },
+  { key: 'name', label: '대상자 이름', maxLength: 40 },
   { key: 'age', label: '나이 (세)', type: 'number', min: 0, max: 130, step: 1 },
   { key: 'height', label: '키 (cm)', type: 'number', min: 1, max: 300, step: .1 },
   { key: 'weight', label: '몸무게 (kg)', type: 'number', min: 1, max: 500, step: .1 },
@@ -15,78 +18,63 @@ const fields = [
   { key: 'guardianPhone', label: '보호자 연락처', type: 'tel', maxLength: 30 },
 ] as const
 
-function SubjectForm({ subject, save, close }: { subject?: Subject; save: (details: SubjectDetails) => void; close: () => void }) {
-  const [details, setDetails] = useState<SubjectDetails>(subject ?? EMPTY_DETAILS)
+export function RoomEditor({ room, rooms, save, close }: {
+  room?: RoomRecord; rooms: RoomRecord[]; save: (details: SubjectDetails) => void; close: () => void
+}) {
+  const [details, setDetails] = useState<SubjectDetails>(() => room ? roomSubject(room) : EMPTY_DETAILS)
+  const labelKey = roomLabelKey(details.room)
+  const duplicate = rooms.some(entry => entry.id !== room?.id && roomLabelKey(roomLabel(entry)) === labelKey)
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!details.name.trim() || !details.room.trim()) return
-    save({ ...details, name: details.name.trim(), room: details.room.trim(), guardian: details.guardian.trim(), guardianPhone: details.guardianPhone.trim() })
+    if (labelKey && !duplicate) save(details)
   }
 
-  return <form className="subject-form" onSubmit={submit} autoComplete="off">
-    <div className="subject-fields">
-      {fields.map(({ key, label, ...input }) => <label key={key}>{label}
-        <input {...input} value={details[key]} onChange={event => setDetails({ ...details, [key]: event.target.value })} />
-      </label>)}
-      <label>성별
-        <select value={details.gender} onChange={event => setDetails({ ...details, gender: event.target.value })}>
-          <option value="">선택 안 함</option><option>여성</option><option>남성</option><option>기타</option>
-        </select>
-      </label>
-    </div>
-    <div className="subject-actions"><button type="button" className="subject-button" onClick={close}>취소</button>
-      <button className="subject-button subject-primary" type="submit" disabled={!details.name.trim() || !details.room.trim()}>저장</button></div>
-  </form>
+  return <ViewDialog title={room ? '호실·대상자 수정' : '호실 추가'} closeLabel="호실 양식 닫기" close={close}>
+    <form className="subject-form" onSubmit={submit} autoComplete="off">
+      <div className="subject-fields">
+        {fields.map(({ key, label, ...input }) => <label key={key}>{label}
+          <input {...input} value={details[key]} onChange={event => setDetails({ ...details, [key]: event.target.value })} />
+        </label>)}
+        <label>성별
+          <select value={details.gender} onChange={event => setDetails({ ...details, gender: event.target.value })}>
+            <option value="">선택 안 함</option><option>여성</option><option>남성</option><option>기타</option>
+          </select>
+        </label>
+      </div>
+      {duplicate && <p className="room-form-error" role="status">같은 이름의 호실이 이미 있습니다.</p>}
+      <div className="subject-actions"><button type="button" className="subject-button" onClick={close}>취소</button>
+        <button className="subject-button subject-primary" type="submit" disabled={!labelKey || duplicate}>저장</button></div>
+    </form>
+  </ViewDialog>
 }
 
-export function Subjects({ subjects, selected, select, save, remove }: {
-  subjects: Subject[]; selected: Subject | null; select: (id: string) => void
-  save: (details: SubjectDetails, id?: string) => void; remove: (id: string) => void
-}) {
-  const [editor, setEditor] = useState<'new' | Subject | null>(null)
-  const [deleting, setDeleting] = useState<Subject | null>(null)
-  const closeEditor = () => setEditor(null)
-  const values = selected && [
-    ['호실', selected.room], ['나이', selected.age && `${selected.age}세`], ['성별', selected.gender],
-    ['키', selected.height && `${selected.height} cm`], ['몸무게', selected.weight && `${selected.weight} kg`],
-    ['보호자 이름', selected.guardian], ['보호자 연락처', selected.guardianPhone],
-  ]
+export function RoomDeleteDialog({ room, remove, close }: { room: RoomRecord; remove: () => void; close: () => void }) {
+  return <ViewDialog title="호실 삭제" closeLabel="삭제 창 닫기" close={close}>
+    <p className="subject-delete-copy"><strong>{roomLabel(room)}</strong>을 모니터링과 대상자 관리 목록에서 삭제할까요?</p>
+    <div className="subject-actions"><button type="button" className="subject-button" onClick={close}>취소</button>
+      <button type="button" className="subject-button subject-delete" onClick={remove}>삭제 확인</button></div>
+  </ViewDialog>
+}
 
-  return <main className="subjects-page">
-    <div className="subjects-heading">
-      <h1 tabIndex={-1}>대상자 정보</h1>
-      <button type="button" className="subject-button subject-primary" onClick={() => setEditor('new')}><Plus size={17} />대상자 등록</button>
-    </div>
-    <p className="subjects-note">등록 정보는 이 브라우저에 저장됩니다. 공유용 화면에서는 시연용 정보를 입력해 주세요.</p>
-    {selected && values ? <div className="subjects-grid">
-      <section className="panel subject-list" aria-label="대상자 목록">
-        <h2>대상자 목록 <small>{subjects.length}명</small></h2>
-        <ul>{subjects.map(subject => <li key={subject.id}><button type="button" aria-pressed={selected.id === subject.id} onClick={() => select(subject.id)}>
-          <UserRound size={18} aria-hidden="true" /><span><strong>{subject.name}</strong><small>{subject.room}</small></span>
-        </button></li>)}</ul>
-      </section>
-      <section className="panel subject-profile" aria-label="선택한 대상자 정보">
-        <div className="subject-profile-heading"><div className="subject-identity">
-          <span className="report-subject-icon"><UserRound size={23} aria-hidden="true" /></span>
-          <div><h2>{selected.name}</h2><p><MapPin size={14} aria-hidden="true" />{selected.room}</p></div>
-        </div><div className="subject-actions">
-          <button type="button" className="subject-button" onClick={() => setEditor(selected)}><Pencil size={15} />수정</button>
-          <button type="button" className="subject-button subject-danger" onClick={() => setDeleting(selected)}><Trash2 size={15} />삭제</button>
-        </div></div>
-        <dl className="subject-details">{values.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || '—'}</dd></div>)}</dl>
-      </section>
-    </div> : <section className="panel subject-empty"><UserRound size={25} /><h2>등록된 대상자가 없습니다</h2><p>대상자를 등록하면 모니터링과 생활 리포트에서 선택할 수 있습니다.</p></section>}
-    {editor && <ViewDialog title={editor === 'new' ? '대상자 등록' : '대상자 정보 수정'} closeLabel="대상자 양식 닫기" close={closeEditor}>
-      <SubjectForm subject={editor === 'new' ? undefined : editor} close={closeEditor} save={details => {
-        save(details, editor === 'new' ? undefined : editor.id)
-        closeEditor()
-      }} />
-    </ViewDialog>}
-    {deleting && <ViewDialog title="대상자 삭제" closeLabel="삭제 창 닫기" close={() => setDeleting(null)}>
-      <p className="subject-delete-copy"><strong>{deleting.name}</strong> 대상자 정보를 이 브라우저에서 삭제할까요?</p>
-      <div className="subject-actions"><button type="button" className="subject-button" onClick={() => setDeleting(null)}>취소</button>
-        <button type="button" className="subject-button subject-delete" onClick={() => { remove(deleting.id); setDeleting(null) }}>삭제 확인</button></div>
-    </ViewDialog>}
+export function Subjects({ rooms, add, edit, remove }: {
+  rooms: RoomRecord[]; add: () => void; edit: (room: RoomRecord) => void; remove: (room: RoomRecord) => void
+}) {
+  return <main className="institution-page">
+    <section className="institution-panel institution-room-panel" aria-labelledby="subject-list-title">
+      <div className="institution-section-head"><h1 id="subject-list-title" tabIndex={-1}>대상자 관리</h1>
+        <button type="button" className="institution-primary" onClick={add}><Plus size={16} />호실 추가</button>
+      </div>
+      <div className="institution-table-scroll"><table className="institution-table institution-subject-table">
+        <thead><tr><th>호실</th><th>이름</th><th>관리</th></tr></thead>
+        <tbody>{rooms.map(room => <tr key={room.id}>
+          <th scope="row"><a className="institution-room-link" href={roomHref(room.id)}>{roomLabel(room)}</a></th>
+          <td><a className="institution-room-link" href={roomHref(room.id)}><UserRound size={15} aria-hidden="true" />{room.name || '미배정'}<ChevronRight size={14} aria-hidden="true" /></a></td>
+          <td><div className="subject-actions"><button type="button" className="institution-secondary" onClick={() => edit(room)} aria-label={`${roomLabel(room)} 수정`}><Pencil size={14} />수정</button>
+            <button type="button" className="institution-secondary subject-danger" onClick={() => remove(room)} aria-label={`${roomLabel(room)} 삭제`}><Trash2 size={14} />삭제</button></div></td>
+        </tr>)}{rooms.length === 0 && <tr><td colSpan={3} className="institution-empty">등록된 호실이 없습니다.</td></tr>}</tbody>
+      </table></div>
+      <p className="subjects-note">호실과 대상자 정보는 이 브라우저에 저장됩니다.</p>
+    </section>
   </main>
 }

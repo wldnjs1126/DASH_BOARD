@@ -8,10 +8,11 @@ import {
 import { Brand } from './Brand.tsx'
 import { CARE_PAGES, CareSidebar } from './CareSidebar.tsx'
 import { DailyReport } from './DailyReport.tsx'
-import { AlertHistory, InstitutionAlert, InstitutionOverview, InstitutionSettings, RoomDetailHeader, RoomDetails } from './Institution.tsx'
+import { AlertHistory, InstitutionAlert, InstitutionClock, InstitutionOverview, InstitutionSettings, RoomDetailHeader, RoomDetails } from './Institution.tsx'
 import { InstitutionLogin } from './InstitutionLogin.tsx'
-import { ALERTS, INSTITUTION_DATE, ROOMS } from './institutionData.ts'
-import type { CareEvent } from './institutionData.ts'
+import { readFacilityRooms, roomSubject, updateRoom, writeFacilityRooms } from './facilityRooms.ts'
+import { ALERTS, roomHref, roomLabel } from './institutionData.ts'
+import type { CareEvent, RoomRecord } from './institutionData.ts'
 import { Landing } from './Landing.tsx'
 import { ROOM_SIZE } from './room.ts'
 import { Room3D } from './Room3D.tsx'
@@ -19,9 +20,9 @@ import {
   advanceTime, detectionAt, frameAt, historyAt, RISK_LABEL, SCENARIO_BY_ID, SCENARIOS, ZONE,
 } from './scenarios.ts'
 import type { Detection, Risk, Scenario } from './scenarios.ts'
-import { DEMO_SUBJECT, readDirectory, writeDirectory } from './subjectDirectory.ts'
-import type { Subject, SubjectDetails, SubjectDirectory } from './subjectDirectory.ts'
-import { Subjects } from './Subjects.tsx'
+import { DEMO_SUBJECT } from './subjectDirectory.ts'
+import type { Subject, SubjectDetails } from './subjectDirectory.ts'
+import { RoomDeleteDialog, RoomEditor, Subjects } from './Subjects.tsx'
 import { FloorPlan, PanelHeading, SignalChart, ViewDialog } from './visuals.tsx'
 import './care-workspace.css'
 import './institution.css'
@@ -260,7 +261,9 @@ function readConfirmations(): string[] {
 export function App() {
   const [route, setRoute] = useState(readRoute)
   const [signedIn, setSignedIn] = useState(readSession)
-  const [directory, setDirectory] = useState(readDirectory)
+  const [rooms, setRooms] = useState(readFacilityRooms)
+  const [editor, setEditor] = useState<RoomRecord | 'new' | null>(null)
+  const [deleting, setDeleting] = useState<RoomRecord | null>(null)
   const [storageError, setStorageError] = useState(false)
   const [sidebarExpanded, setSidebarExpanded] = useState(() => window.matchMedia('(min-width: 721px)').matches)
   const [confirmedIds, setConfirmedIds] = useState(readConfirmations)
@@ -268,14 +271,17 @@ export function App() {
   const [autoAlerts, setAutoAlerts] = useState(() => {
     try { return localStorage.getItem('carewave.institution.auto-alerts') === 'on' } catch { return false }
   })
-  const room = route.startsWith('room/') ? ROOMS.find(entry => entry.id === route.slice(5)) : undefined
-  const page = room || route === 'demo' || route.startsWith('room/') ? 'dashboard' : route === 'subjects' ? 'subjects' : route === 'daily-report' ? 'report' : route === 'alerts' ? 'alerts' : route === 'settings' ? 'settings' : null
+  const [routeType, roomId, roomView] = route.split('/')
+  const room = route === 'daily-report' ? rooms.find(entry => entry.name) : routeType === 'room' ? rooms.find(entry => entry.id === roomId) : undefined
+  const showReport = Boolean(room && (roomView === 'report' || route === 'daily-report'))
+  const page = route === 'demo' || route === 'daily-report' || route.startsWith('room/') ? 'dashboard' : route === 'subjects' ? 'subjects' : route === 'alerts' ? 'alerts' : route === 'settings' ? 'settings' : null
   const showLogin = route === 'login' || route === 'demo-entry' || Boolean(page && !signedIn)
   const screen = showLogin ? 'login' : page ?? 'landing'
-  const previousScreen = useRef(`${screen}/${room?.id ?? ''}`)
-  const selected = directory.subjects.find(subject => subject.id === directory.selectedId) ?? null
+  const previousScreen = useRef(`${screen}/${room?.id ?? ''}/${showReport}`)
   const isConfirmed = (event: CareEvent) => event.confirmed || confirmedIds.includes(event.id)
-  const pendingAlerts = ALERTS.filter(event => !isConfirmed(event))
+  const alerts = ALERTS.filter(event => rooms.some(entry => entry.id === event.room))
+  const pendingAlerts = alerts.filter(event => !isConfirmed(event))
+  const alertRoom = activeAlert && rooms.find(entry => entry.id === activeAlert.room)
 
   useEffect(() => {
     const syncRoute = () => setRoute(readRoute())
@@ -284,9 +290,9 @@ export function App() {
   }, [])
 
   useEffect(() => {
-    const title = screen === 'landing' ? '비카메라 시니어 돌봄' : screen === 'login' ? '로그인' : room ? `${room.id}호 상세정보` : CARE_PAGES[screen].label
+    const title = screen === 'landing' ? '비카메라 시니어 돌봄' : screen === 'login' ? '로그인' : room ? `${roomLabel(room)} ${showReport ? '생활 리포트' : '상세정보'}` : CARE_PAGES[screen].label
     document.title = `CareWave | ${title}`
-    const screenKey = `${screen}/${room?.id ?? ''}`
+    const screenKey = `${screen}/${room?.id ?? ''}/${showReport}`
     if (previousScreen.current !== screenKey) {
       previousScreen.current = screenKey
       if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
@@ -297,7 +303,7 @@ export function App() {
     const target = screen === 'landing' && route ? document.getElementById(route === 'dashboard' ? 'technology' : route) : null
     if (target) target.scrollIntoView()
     else window.scrollTo(0, 0)
-  }, [route, screen, room])
+  }, [route, screen, room, showReport])
 
   function setSession(active: boolean) {
     setSignedIn(active)
@@ -329,25 +335,28 @@ export function App() {
     try { localStorage.setItem('carewave.institution.auto-alerts', value ? 'on' : 'off') } catch { setStorageError(true) }
   }
 
-  function updateDirectory(next: SubjectDirectory) {
-    setDirectory(next)
+  function saveRooms(next: RoomRecord[]) {
+    setRooms(next)
     try {
-      writeDirectory(next)
+      writeFacilityRooms(next)
       setStorageError(false)
     } catch {
       setStorageError(true)
     }
   }
 
-  function saveSubject(details: SubjectDetails, id?: string) {
-    const subject = { ...details, id: id ?? crypto.randomUUID() }
-    const subjects = id ? directory.subjects.map(entry => entry.id === id ? subject : entry) : [...directory.subjects, subject]
-    updateDirectory({ subjects, selectedId: subject.id })
+  function saveRoom(details: SubjectDetails) {
+    const existing = editor === 'new' ? undefined : editor ?? undefined
+    const next = updateRoom(details, existing)
+    saveRooms(existing ? rooms.map(entry => entry.id === existing.id ? next : entry) : [...rooms, next])
+    setEditor(null)
   }
 
-  function removeSubject(id: string) {
-    const subjects = directory.subjects.filter(subject => subject.id !== id)
-    updateDirectory({ subjects, selectedId: directory.selectedId === id ? subjects[0]?.id ?? null : directory.selectedId })
+  function removeRoom() {
+    if (!deleting) return
+    saveRooms(rooms.filter(entry => entry.id !== deleting.id))
+    if (room?.id === deleting.id) window.location.hash = 'demo'
+    setDeleting(null)
   }
 
   if (screen === 'login') return <InstitutionLogin onEnter={() => {
@@ -365,18 +374,22 @@ export function App() {
     }} />
     <div className="care-content">
       {storageError && <p className="care-storage-error" role="status">브라우저 저장소를 사용할 수 없어 변경 내용이 이 탭에서만 유지됩니다.</p>}
-      {room ? <RoomDetailHeader room={room} /> : <header className="institution-header">
+      {room && !showReport ? <RoomDetailHeader room={room} /> : <header className="institution-header">
         <div><p className="institution-header-title">비카메라 센서 기반 시니어 생활패턴 AI 위험감지 서비스</p><p className="institution-header-subtitle">관리자 대시보드 · 기관용 시연</p></div>
-        <div className="institution-header-actions"><time className="institution-clock">{INSTITUTION_DATE} (금) 14:32</time>
+        <div className="institution-header-actions"><InstitutionClock />
           <button type="button" className="icon-button institution-signout" title="로그아웃" aria-label="로그아웃" onClick={signOut}><LogOut size={17} /></button></div>
       </header>}
-      {screen === 'dashboard' && (room ? <RoomDetails key={room.id} room={room} isConfirmed={isConfirmed} /> : <InstitutionOverview pendingAlerts={pendingAlerts} openAlert={setActiveAlert} />)}
-      {screen === 'subjects' && <Subjects subjects={directory.subjects} selected={selected} select={id => updateDirectory({ ...directory, selectedId: id })}
-        save={saveSubject} remove={removeSubject} />}
-      {screen === 'report' && <DailyReport subject={selected} />}
-      {screen === 'alerts' && <AlertHistory isConfirmed={isConfirmed} openAlert={setActiveAlert} confirm={confirmAlert} />}
+      {screen === 'dashboard' && !room && <InstitutionOverview rooms={rooms} addRoom={() => setEditor('new')} pendingAlerts={pendingAlerts} openAlert={setActiveAlert} />}
+      {screen === 'dashboard' && room && (showReport ? <div className="institution-report-view">
+        <a className="institution-secondary" href={roomHref(room.id)}>{roomLabel(room)} 상세정보로 돌아가기</a>
+        <DailyReport subject={room.name ? roomSubject(room) : null} />
+      </div> : <RoomDetails key={room.id} room={room} edit={() => setEditor(room)} remove={() => setDeleting(room)} isConfirmed={isConfirmed} />)}
+      {screen === 'subjects' && <Subjects rooms={rooms} add={() => setEditor('new')} edit={setEditor} remove={setDeleting} />}
+      {screen === 'alerts' && <AlertHistory alerts={alerts} rooms={rooms} isConfirmed={isConfirmed} openAlert={setActiveAlert} confirm={confirmAlert} />}
       {screen === 'settings' && <InstitutionSettings autoAlerts={autoAlerts} setAutoAlerts={updateAutoAlerts} signOut={signOut} />}
     </div>
-    {activeAlert && <InstitutionAlert key={activeAlert.id} event={activeAlert} close={() => setActiveAlert(null)} confirm={() => confirmAlert(activeAlert)} />}
+    {activeAlert && alertRoom && <InstitutionAlert key={activeAlert.id} event={activeAlert} room={alertRoom} close={() => setActiveAlert(null)} confirm={() => confirmAlert(activeAlert)} />}
+    {editor && <RoomEditor room={editor === 'new' ? undefined : editor} rooms={rooms} close={() => setEditor(null)} save={saveRoom} />}
+    {deleting && <RoomDeleteDialog room={deleting} close={() => setDeleting(null)} remove={removeRoom} />}
   </div>
 }

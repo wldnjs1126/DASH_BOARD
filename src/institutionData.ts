@@ -3,9 +3,14 @@ export const PREVIOUS_DATE = '2026-11-12'
 export const LEVEL_LABELS = { normal: '정상', watch: '관찰', caution: '주의', danger: '위험', unknown: '판별 불가' } as const
 export type Level = keyof typeof LEVEL_LABELS
 export type RoomRecord = {
-  id: string; name: string; age: number; gender: string; height: number; weight: number
+  id: string; label?: string; name: string; age: number | null; gender: string; height: number | null; weight: number | null
+  guardian?: string; guardianPhone?: string
   level: Level; occupied: boolean; online: boolean; reason: string
 }
+
+export const roomLabel = (room: RoomRecord) => room.label ?? `${room.id}호`
+export const roomHref = (roomId: string) => `#room/${roomId}`
+export const isDemoRoom = (roomId: string) => ROOMS.some(room => room.id === roomId)
 
 export const ROOMS: readonly RoomRecord[] = [
   { id: '201', name: '이순자', age: 84, gender: '여성', height: 151, weight: 49, level: 'danger', occupied: true, online: true, reason: '이동 중 높이가 급격히 낮아진 뒤 바닥 가까이에서 움직임이 감소했습니다.' },
@@ -53,13 +58,14 @@ export function getRoomHistory(roomId: string) {
     .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))
 }
 
-export function getFacilityStats() {
+export function getFacilityStats(rooms: readonly RoomRecord[] = ROOMS) {
+  const roomIds = new Set(rooms.map(room => room.id))
   const majorAlerts = [...ALERTS, ...roomHistory.filter(event => event.id === 'fall-201')]
   return {
-    total: ROOMS.length,
-    occupied: ROOMS.filter(room => room.occupied).length,
-    alerts: majorAlerts.filter(event => event.date === INSTITUTION_DATE && (event.level === 'danger' || event.level === 'caution')).length,
-    atRisk: ROOMS.filter(room => room.level === 'danger').length,
+    total: rooms.filter(room => room.name).length,
+    occupied: rooms.filter(room => room.occupied).length,
+    alerts: majorAlerts.filter(event => roomIds.has(event.room) && event.date === INSTITUTION_DATE && (event.level === 'danger' || event.level === 'caution')).length,
+    atRisk: rooms.filter(room => room.level === 'danger').length,
   }
 }
 
@@ -68,6 +74,7 @@ type TimelineKind = keyof typeof TIMELINE_LABELS
 type Interval = { start: number; end: number; kind: TimelineKind }
 
 export function getRoomDay(room: RoomRecord, date: string) {
+  if (!isDemoRoom(room.id)) return { segments: [] as Interval[], activity: 0, bed: 0, sleep: 0, exits: 0 }
   const offset = Number(room.id) - 203 + (date === PREVIOUS_DATE ? -7 : 0)
   const first = 90 + offset * 2
   const second = 390 + offset * 3

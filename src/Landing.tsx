@@ -204,7 +204,8 @@ export function Landing({ dashboardPreview, signedIn }: { dashboardPreview: Reac
         <div className="landing-dashboard-frame">
           <div className="landing-dashboard-bar">
             <span className="landing-sample"><Play size={13} aria-hidden="true" /> 시뮬레이션 체험</span>
-            <p>아래 <strong>움직임</strong> 버튼을 눌러 이동 경로를 따라가 보세요. <strong>일반 낙상</strong>을 누르면 높이가 급격히 낮아지고 위험 경고가 뜹니다.</p>
+            <p className="landing-dashboard-notice">※ 팝업 메시지는 위험도가 ‘주의’ 또는 ‘위험’일 때만 표시됩니다.</p>
+            <p className="landing-dashboard-instructions">아래 <strong>움직임</strong> 버튼을 눌러 이동 경로를 따라가 보세요. <strong>일반 낙상</strong>을 누르면 높이가 급격히 낮아지고 위험 경고가 뜹니다.</p>
           </div>
           {dashboardPreview}
         </div>

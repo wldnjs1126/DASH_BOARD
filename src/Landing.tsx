@@ -202,7 +202,10 @@ export function Landing({ dashboardPreview, signedIn }: { dashboardPreview: Reac
           <p>이벤트를 선택하면 실증 공간의 이동 경로, 3D 점군, 높이와 속도 그래프가 같은 시간에 바뀝니다.</p>
         </div>
         <div className="landing-dashboard-frame">
-          <div className="landing-dashboard-bar"><span className="landing-sample"><Play size={13} aria-hidden="true" /> 시뮬레이션 모드</span></div>
+          <div className="landing-dashboard-bar">
+            <span className="landing-sample"><Play size={13} aria-hidden="true" /> 시뮬레이션 체험</span>
+            <p>아래 <strong>움직임</strong> 버튼을 눌러 이동 경로를 따라가 보세요. <strong>일반 낙상</strong>을 누르면 높이가 급격히 낮아지고 위험 경고가 뜹니다.</p>
+          </div>
           {dashboardPreview}
         </div>
       </section>

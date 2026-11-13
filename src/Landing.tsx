@@ -93,9 +93,9 @@ function RoomPreview() {
   return <div className="landing-preview" aria-labelledby="room-preview-title">
     <div className="landing-preview-head">
       <div><span className="landing-preview-label"><Layers3 size={15} aria-hidden="true" /> 병실 모니터링</span><h2 id="room-preview-title">{ROOM.name}</h2></div>
-      <span className="landing-sample">시뮬레이션 예시</span>
+      <span className="landing-sample">시뮬레이션</span>
     </div>
-    <div className="landing-preview-controls" role="group" aria-label="시뮬레이션 예시 선택">
+    <div className="landing-preview-controls" role="group" aria-label="시뮬레이션 이벤트 선택">
       {examples.map((item, index) =>
         <button key={item.id} type="button" aria-pressed={index === selected} onClick={() => setSelected(index)}>{item.title}</button>,
       )}
@@ -118,7 +118,7 @@ function RoomPreview() {
         <div className="landing-reading"><span>현재 위치</span><strong>{ZONE[sample.zone].label}</strong></div>
         <div className="landing-reading landing-height">
           <span>높이 변화</span><strong>{sample.z.toFixed(2)} <small>m</small></strong>
-          <svg viewBox="0 0 200 51" role="img" aria-label="예시의 높이 변화 그래프">
+          <svg viewBox="0 0 200 51" role="img" aria-label="높이 변화 그래프">
             <path d="M5 13H195 M5 31H195 M5 49H195" stroke="#dce9f3" strokeWidth="1" fill="none" />
             <path d={heightLine} stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
           </svg>
@@ -270,7 +270,7 @@ export function Landing({ dashboardPreview, signedIn }: { dashboardPreview: Reac
         </div>
         <div className="landing-detail-grid landing-monitor-grid">
           <article className="landing-detail-card">
-            <div className="landing-card-heading"><h3>대상자 현황</h3><span className="landing-sample">관리 화면 예시</span></div>
+            <div className="landing-card-heading"><h3>대상자 현황</h3></div>
             <table className="landing-residents">
               <thead><tr><th scope="col">대상자</th><th scope="col">재실</th><th scope="col">최근 이벤트</th><th scope="col">위험도</th></tr></thead>
               <tbody>{exampleResidents.map(row => <tr key={row.name}>
@@ -279,12 +279,12 @@ export function Landing({ dashboardPreview, signedIn }: { dashboardPreview: Reac
             </table>
           </article>
           <article className="landing-detail-card">
-            <h3 className="landing-icon-heading"><BellRing size={19} aria-hidden="true" />위험 알림 예시</h3>
+            <h3 className="landing-icon-heading"><BellRing size={19} aria-hidden="true" />위험 알림</h3>
             <ul className="landing-risk-list">
               <li><span>장시간 미움직임 확인</span><RiskBadge risk={riskLevels[2]} /></li>
               <li><span>야간이탈 횟수 증가</span><RiskBadge risk={riskLevels[1]} /></li>
             </ul>
-            <p>시연에서는 일반·침대·화장실 입구·이동 중 낙상과 일상 이벤트를 포함한 11개 시나리오를 재생할 수 있습니다.</p>
+            <p>일반·침대·화장실 입구·이동 중 낙상과 일상 이벤트를 포함한 11개 시나리오를 재생할 수 있습니다.</p>
           </article>
         </div>
       </section>

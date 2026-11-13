@@ -3,7 +3,7 @@ export const PREVIOUS_DATE = '2026-11-12'
 export const LEVEL_LABELS = { normal: '정상', watch: '관찰', caution: '주의', danger: '위험', unknown: '판별 불가' } as const
 export type Level = keyof typeof LEVEL_LABELS
 export type RoomRecord = {
-  id: string; label?: string; name: string; age: number | null; gender: string; height: number | null; weight: number | null
+  id: string; label?: string; name: string; age: number | string | null; gender: string; height: number | null; weight: number | null
   guardian?: string; guardianPhone?: string
   level: Level; occupied: boolean; online: boolean; reason: string
 }
@@ -25,10 +25,11 @@ export const ROOMS: readonly RoomRecord[] = [
   { id: '210', name: '한상철', age: 85, gender: '남성', height: 163, weight: 60, level: 'caution', occupied: true, online: true, reason: '평소보다 야간이탈이 잦아 생활 변화를 확인해야 합니다.' },
 ]
 
-export const SMS_LABELS = { sent: '발송 완료', failed: '발송 실패', none: '미발송' } as const
+export const SMS_LABELS = { sent: '발송 완료', failed: '발송 실패', none: '미발송', unknown: '기록 없음' } as const
 export type CareEvent = {
-  id: string; room: string; date: string; time: string; type: string; duration: string
-  level: Level; confirmed: boolean; sms: keyof typeof SMS_LABELS; retries: number; location: string; note: string
+  simulated?: boolean
+  id: string; room: string; date: string; time: string; detectedTime?: string; type: string; duration: string
+  level: Level; confirmed: boolean; sms: keyof typeof SMS_LABELS; retries: number | null; location: string; note: string
 }
 
 export const ALERTS: readonly CareEvent[] = [

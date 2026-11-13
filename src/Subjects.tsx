@@ -11,7 +11,7 @@ import { ViewDialog } from './visuals.tsx'
 const fields = [
   { key: 'room', label: '호실 이름', required: true, maxLength: 30 },
   { key: 'name', label: '대상자 이름', maxLength: 40 },
-  { key: 'age', label: '나이 (세)', type: 'number', min: 0, max: 130, step: 1 },
+  { key: 'age', label: '나이 또는 연령대', pattern: '(?:[0-9]{1,2}|1[0-2][0-9]|130|[0-9]{2,3}대)', placeholder: '예: 30대', maxLength: 4 },
   { key: 'height', label: '키 (cm)', type: 'number', min: 1, max: 300, step: .1 },
   { key: 'weight', label: '몸무게 (kg)', type: 'number', min: 1, max: 500, step: .1 },
   { key: 'guardian', label: '보호자 이름', maxLength: 40 },

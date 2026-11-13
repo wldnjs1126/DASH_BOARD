@@ -62,6 +62,7 @@
 .institution-room-grid, .institution-room-row { display: grid; gap: clamp(8px, .9vw, 13px); }
 .institution-room-actions { display: flex; flex-wrap: wrap; gap: 7px; }
 .institution-no-rooms { padding: 24px 8px; color: #57778d; text-align: center; }
+.institution-experiment-note { margin: 0 0 13px; color: #496e85; font-size: 13px; line-height: 1.5; }
 .institution-room {
   display: grid; justify-items: center; align-content: space-between; gap: 8px; min-height: clamp(120px, 20vh, 158px);
   padding: 9px 5px 7px; border: 1px solid #8ed9ec; border-radius: 4px; color: #142d46; text-align: center; text-decoration: none;
@@ -121,11 +122,14 @@
 .timeline-sleep { --timeline-color: #6954bd; --timeline-ink: #6046b4; --timeline-soft: #f0ebff; }
 .timeline-away { --timeline-color: #e99c38; --timeline-ink: #a55c0c; --timeline-soft: #fff1de; }
 .timeline-offline { --timeline-color: repeating-linear-gradient(135deg, #a8b6c0 0 4px, #ced7dd 4px 8px); }
+.timeline-presence { --timeline-color: #8bbabb; }
+.timeline-still { --timeline-color: #8d92b7; }
 .institution-page select { max-width: 100%; min-height: 36px; padding: 5px 8px; border: 1px solid #d0e1ea; border-radius: 7px; background: #fff; color: #365974; font-size: 12px; }
 .institution-timeline-axis { display: flex; justify-content: space-between; gap: 2px; margin: 14px 0 6px; color: #57778d; font-size: 10px; font-variant-numeric: tabular-nums; }
 .institution-timeline-track { position: relative; height: 64px; border: 1px solid #dae7ed; border-radius: 8px; background: repeating-linear-gradient(to right, #dce8ee 0 1px, #f5f8f9 1px 12.5%); }
 .timeline-segment { background: var(--timeline-color); }
 .institution-timeline-track .timeline-segment { position: absolute; top: 25%; height: 50%; padding: 0; border: 0; border-right: 1px solid #fff7; }
+.institution-timeline-track[aria-label="동기화한 실증 구간"] { background: repeating-linear-gradient(to right, #dce8ee 0 1px, #f5f8f9 1px calc(100% / 6)); }
 .institution-timeline-track .timeline-segment:is(:hover, :focus-visible) { z-index: 1; outline: 2px solid #254a67; outline-offset: 0; }
 .institution-timeline-legend { display: flex; flex-wrap: wrap; gap: 6px 15px; padding: 0; margin: 12px 0 8px; list-style: none; }
 .institution-timeline-legend li { display: flex; gap: 5px; align-items: center; color: #4e7085; font-size: 11px; }

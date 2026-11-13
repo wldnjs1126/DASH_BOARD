@@ -80,7 +80,7 @@ function SubjectReport({ subject }: { subject: Subject }) {
     </div>
     <footer className="daily-report-note">
       <p>비교 기준 · 활동 {duration(baseline.activity)} · 수면 {duration(baseline.sleep)} · 야간이탈 {baseline.exits}회 · 장시간 미움직임 {baseline.still}회</p>
-      <p>데이터 출처 · CareWave 시연 시나리오</p>
+      <p>데이터 출처 · CareWave 시뮬레이션</p>
     </footer>
   </>
 }

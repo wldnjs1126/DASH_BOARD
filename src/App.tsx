@@ -8,10 +8,13 @@ import {
 import { Brand } from './Brand.tsx'
 import { CARE_PAGES, CareSidebar } from './CareSidebar.tsx'
 import { DailyReport } from './DailyReport.tsx'
+import { experimentRooms } from './experiment.ts'
+import type { ExperimentRecording } from './experiment.ts'
+import { useLiveExperiment } from './liveExperiment.ts'
 import { AlertHistory, InstitutionAlert, InstitutionClock, InstitutionOverview, InstitutionSettings, RoomDetailHeader, RoomDetails } from './Institution.tsx'
 import { InstitutionLogin } from './InstitutionLogin.tsx'
 import { readFacilityRooms, roomSubject, updateRoom, writeFacilityRooms } from './facilityRooms.ts'
-import { ALERTS, roomHref, roomLabel } from './institutionData.ts'
+import { roomHref, roomLabel } from './institutionData.ts'
 import type { CareEvent, RoomRecord } from './institutionData.ts'
 import { Landing } from './Landing.tsx'
 import { ROOM_SIZE } from './room.ts'
@@ -158,7 +161,7 @@ function TechnologyDemo() {
 
   return <div ref={demo} className={`dashboard dashboard-embedded${presenting ? ' technology-presenting' : ''}`}>
     <div className="workspace">
-      <div className="page-title"><h3>병실 모니터링 시연</h3><span className="dashboard-subject"><UserRound size={15} /> {subject.name} <i /> <MapPin size={15} /> {subject.room} <i /> {ROOM_SIZE}
+      <div className="page-title"><h3>병실 모니터링</h3><span className="dashboard-subject"><UserRound size={15} /> {subject.name} <i /> <MapPin size={15} /> {subject.room} <i /> {ROOM_SIZE}
         <button type="button" className="view-expand" onClick={() => void toggleFullscreen()}>{presenting ? <Minimize size={13} /> : <Maximize size={13} />}{presenting ? '전체 화면 종료' : '전체 화면'}</button>
       </span></div>
 
@@ -251,37 +254,47 @@ function readSession() {
   try { return sessionStorage.getItem(SESSION_KEY) === 'active' } catch { return false }
 }
 
-function readConfirmations(): string[] {
+function readAlertIds(key: string): string[] {
   try {
-    const saved: unknown = JSON.parse(localStorage.getItem('carewave.institution.confirmed') ?? '[]')
+    const saved: unknown = JSON.parse(localStorage.getItem(key) ?? '[]')
     return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : []
   } catch { return [] }
 }
 
-export function App() {
+export function App({ experiment = null, publicDemo = false }: { experiment?: ExperimentRecording[] | null; publicDemo?: boolean }) {
   const [route, setRoute] = useState(readRoute)
   const [signedIn, setSignedIn] = useState(readSession)
-  const [rooms, setRooms] = useState(readFacilityRooms)
+  const [rooms, setRooms] = useState(() => readFacilityRooms(experiment ? experimentRooms(experiment) : undefined))
   const [editor, setEditor] = useState<RoomRecord | 'new' | null>(null)
   const [deleting, setDeleting] = useState<RoomRecord | null>(null)
   const [storageError, setStorageError] = useState(false)
   const [sidebarExpanded, setSidebarExpanded] = useState(() => window.matchMedia('(min-width: 721px)').matches)
-  const [confirmedIds, setConfirmedIds] = useState(readConfirmations)
+  const [confirmedIds, setConfirmedIds] = useState(() => readAlertIds('carewave.institution.confirmed'))
   const [activeAlert, setActiveAlert] = useState<CareEvent | null>(null)
-  const [autoAlerts, setAutoAlerts] = useState(() => {
-    try { return localStorage.getItem('carewave.institution.auto-alerts') === 'on' } catch { return false }
-  })
   const [routeType, roomId, roomView] = route.split('/')
   const room = route === 'daily-report' ? rooms.find(entry => entry.name) : routeType === 'room' ? rooms.find(entry => entry.id === roomId) : undefined
+  const recording = experiment?.find(entry => entry.id === room?.id)
   const showReport = Boolean(room && (roomView === 'report' || route === 'daily-report'))
   const page = route === 'demo' || route === 'daily-report' || route.startsWith('room/') ? 'dashboard' : route === 'subjects' ? 'subjects' : route === 'alerts' ? 'alerts' : route === 'settings' ? 'settings' : null
   const showLogin = route === 'login' || route === 'demo-entry' || Boolean(page && !signedIn)
   const screen = showLogin ? 'login' : page ?? 'landing'
+  const liveEnabled = Boolean(experiment && signedIn && page && !showLogin)
+  const { events: liveEvents, statuses, reset: resetLiveEvents } = useLiveExperiment(liveEnabled, rooms)
+  const displayedRooms = liveEnabled ? rooms.map(entry => ({ ...entry, ...statuses.get(entry.id), occupied: true })) : rooms
+  const displayedRoom = displayedRooms.find(entry => entry.id === room?.id)
+  const lastShownEvent = useRef<string | null>(null)
+  const latestLiveEvent = liveEvents[0]
   const previousScreen = useRef(`${screen}/${room?.id ?? ''}/${showReport}`)
   const isConfirmed = (event: CareEvent) => event.confirmed || confirmedIds.includes(event.id)
-  const alerts = ALERTS.filter(event => rooms.some(entry => entry.id === event.room))
+  const alerts = liveEvents.filter(event => rooms.some(entry => entry.id === event.room))
   const pendingAlerts = alerts.filter(event => !isConfirmed(event))
   const alertRoom = activeAlert && rooms.find(entry => entry.id === activeAlert.room)
+
+  useEffect(() => {
+    if (!liveEnabled || !latestLiveEvent || lastShownEvent.current === latestLiveEvent.id || editor || deleting || activeAlert) return
+    lastShownEvent.current = latestLiveEvent.id
+    setActiveAlert(latestLiveEvent)
+  }, [liveEnabled, latestLiveEvent, editor, deleting, activeAlert])
 
   useEffect(() => {
     const syncRoute = () => setRoute(readRoute())
@@ -317,6 +330,7 @@ export function App() {
   }
 
   function signOut() {
+    resetLiveEvents()
     setSession(false)
     setActiveAlert(null)
     window.location.hash = 'login'
@@ -326,20 +340,17 @@ export function App() {
     if (!isConfirmed(event)) {
       const next = [...confirmedIds, event.id]
       setConfirmedIds(next)
-      try { localStorage.setItem('carewave.institution.confirmed', JSON.stringify(next)) } catch { setStorageError(true) }
+      if (!event.simulated) {
+        try { localStorage.setItem('carewave.institution.confirmed', JSON.stringify(next.filter(id => !id.startsWith('live-')))) } catch { setStorageError(true) }
+      }
     }
     setActiveAlert(null)
-  }
-
-  function updateAutoAlerts(value: boolean) {
-    setAutoAlerts(value)
-    try { localStorage.setItem('carewave.institution.auto-alerts', value ? 'on' : 'off') } catch { setStorageError(true) }
   }
 
   function saveRooms(next: RoomRecord[]) {
     setRooms(next)
     try {
-      writeFacilityRooms(next)
+      writeFacilityRooms(next, Boolean(experiment))
       setStorageError(false)
     } catch {
       setStorageError(true)
@@ -363,9 +374,6 @@ export function App() {
   if (screen === 'login') return <InstitutionLogin onEnter={() => {
     setSession(true)
     if (!page) window.location.hash = 'demo'
-    if (autoAlerts && (!page || (page === 'dashboard' && !room))) {
-      setActiveAlert(pendingAlerts.find(event => event.level === 'danger' || event.level === 'caution') ?? null)
-    }
   }} />
   if (screen === 'landing') return <Landing dashboardPreview={<TechnologyDemo />} signedIn={signedIn} />
 
@@ -375,19 +383,21 @@ export function App() {
     }} />
     <div className="care-content">
       {storageError && <p className="care-storage-error" role="status">브라우저 저장소를 사용할 수 없어 변경 내용이 이 탭에서만 유지됩니다.</p>}
-      {room && !showReport ? <RoomDetailHeader room={room} /> : <header className="institution-header">
-        <div><p className="institution-header-title">비카메라 센서 기반 시니어 생활패턴 AI 위험감지 서비스</p><p className="institution-header-subtitle">관리자 대시보드 · 기관용 시연</p></div>
+      {room && !showReport ? <RoomDetailHeader room={room} recording={recording} /> : <header className="institution-header">
+        <div><p className="institution-header-title">비카메라 센서 기반 시니어 생활패턴 AI 위험감지 서비스</p>
+          {screen === 'dashboard' && !room && <p className="institution-header-subtitle">{publicDemo ? '실증에서 확인한 이벤트 유형을 바탕으로 구성했습니다.' : experiment ? '실증에서 수집한 데이터를 바탕으로 구성했습니다.' : '관리자 대시보드'}</p>}
+        </div>
         <div className="institution-header-actions"><InstitutionClock />
           <button type="button" className="icon-button institution-signout" title="로그아웃" aria-label="로그아웃" onClick={signOut}><LogOut size={17} /></button></div>
       </header>}
-      {screen === 'dashboard' && !room && <InstitutionOverview rooms={rooms} addRoom={() => setEditor('new')} pendingAlerts={pendingAlerts} openAlert={setActiveAlert} />}
+      {screen === 'dashboard' && !room && <InstitutionOverview rooms={displayedRooms} addRoom={() => setEditor('new')} pendingAlerts={pendingAlerts} openAlert={setActiveAlert} experimentAlerts={experiment ? liveEvents : undefined} publicDemo={publicDemo} />}
       {screen === 'dashboard' && room && (showReport ? <div className="institution-report-view">
         <a className="institution-secondary" href={roomHref(room.id)}>{roomLabel(room)} 상세정보로 돌아가기</a>
-        <DailyReport subject={room.name ? roomSubject(room) : null} />
-      </div> : <RoomDetails key={room.id} room={room} edit={() => setEditor(room)} remove={() => setDeleting(room)} isConfirmed={isConfirmed} />)}
+        {recording ? <RoomDetails key={`${room.id}/report`} room={room} recording={recording} publicDemo={publicDemo} reportOnly isConfirmed={isConfirmed} /> : <DailyReport subject={room.name ? roomSubject(room) : null} />}
+      </div> : <RoomDetails key={room.id} room={displayedRoom ?? room} recording={recording} publicDemo={publicDemo} liveStatus={liveEnabled ? statuses.get(room.id) : undefined} lastLiveEvent={liveEnabled ? liveEvents.find(event => event.room === room.id) : undefined} edit={() => setEditor(room)} remove={() => setDeleting(room)} isConfirmed={isConfirmed} />)}
       {screen === 'subjects' && <Subjects rooms={rooms} add={() => setEditor('new')} edit={setEditor} remove={setDeleting} />}
       {screen === 'alerts' && <AlertHistory alerts={alerts} rooms={rooms} isConfirmed={isConfirmed} openAlert={setActiveAlert} confirm={confirmAlert} />}
-      {screen === 'settings' && <InstitutionSettings autoAlerts={autoAlerts} setAutoAlerts={updateAutoAlerts} signOut={signOut} />}
+      {screen === 'settings' && <InstitutionSettings signOut={signOut} />}
     </div>
     {activeAlert && alertRoom && <InstitutionAlert key={activeAlert.id} event={activeAlert} room={alertRoom} close={() => setActiveAlert(null)} confirm={() => confirmAlert(activeAlert)} />}
     {editor && <RoomEditor room={editor === 'new' ? undefined : editor} rooms={rooms} close={() => setEditor(null)} save={saveRoom} />}

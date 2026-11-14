@@ -287,14 +287,20 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
   const previousScreen = useRef(`${screen}/${room?.id ?? ''}/${showReport}`)
   const isConfirmed = (event: CareEvent) => event.confirmed || confirmedIds.includes(event.id)
   const alerts = liveEvents.filter(event => rooms.some(entry => entry.id === event.room))
+  const roomAlerts = room ? alerts.filter(event => event.room === room.id) : []
   const pendingAlerts = alerts.filter(event => !isConfirmed(event))
   const alertRoom = activeAlert && rooms.find(entry => entry.id === activeAlert.room)
 
   useEffect(() => {
-    if (!liveEnabled || !latestLiveEvent || lastShownEvent.current === latestLiveEvent.id || editor || deleting || activeAlert) return
+    if (!liveEnabled || !latestLiveEvent || lastShownEvent.current === latestLiveEvent.id) return
+    if (screen === 'alerts') {
+      lastShownEvent.current = latestLiveEvent.id
+      return
+    }
+    if (editor || deleting || activeAlert) return
     lastShownEvent.current = latestLiveEvent.id
     setActiveAlert(latestLiveEvent)
-  }, [liveEnabled, latestLiveEvent, editor, deleting, activeAlert])
+  }, [liveEnabled, latestLiveEvent, screen, editor, deleting, activeAlert])
 
   useEffect(() => {
     const syncRoute = () => setRoute(readRoute())
@@ -314,7 +320,7 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
     }
 
     // Hash targets may mount only after the hash change, such as on browser Back.
-    const target = screen === 'landing' && route ? document.getElementById(route === 'dashboard' ? 'technology' : route) : null
+    const target = screen === 'landing' && route ? document.getElementById(route) : null
     if (target) target.scrollIntoView()
     else window.scrollTo(0, 0)
   }, [route, screen, room, showReport])
@@ -377,15 +383,19 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
   }} />
   if (screen === 'landing') return <Landing dashboardPreview={<TechnologyDemo />} signedIn={signedIn} />
 
+  const headerSubtitle = publicDemo
+    ? '실증에서 확인한 이벤트 유형을 바탕으로 구성했습니다.'
+    : experiment ? '실증에서 수집한 데이터를 바탕으로 구성했습니다.' : '관리자 대시보드'
+
   return <div className={`care-shell institution-shell${sidebarExpanded ? '' : ' care-shell-collapsed'}`}>
     <CareSidebar page={screen} expanded={sidebarExpanded} toggle={() => setSidebarExpanded(current => !current)} navigate={() => {
       if (window.matchMedia('(max-width: 720px)').matches) setSidebarExpanded(false)
     }} />
     <div className="care-content">
       {storageError && <p className="care-storage-error" role="status">브라우저 저장소를 사용할 수 없어 변경 내용이 이 탭에서만 유지됩니다.</p>}
-      {room && !showReport ? <RoomDetailHeader room={room} recording={recording} /> : <header className="institution-header">
+      {room && !showReport ? <RoomDetailHeader room={room} recording={recording} subtitle={headerSubtitle} /> : <header className="institution-header">
         <div><p className="institution-header-title">비카메라 센서 기반 시니어 생활패턴 AI 위험감지 서비스</p>
-          {screen === 'dashboard' && !room && <p className="institution-header-subtitle">{publicDemo ? '실증에서 확인한 이벤트 유형을 바탕으로 구성했습니다.' : experiment ? '실증에서 수집한 데이터를 바탕으로 구성했습니다.' : '관리자 대시보드'}</p>}
+          <p className="institution-header-subtitle">{headerSubtitle}</p>
         </div>
         <div className="institution-header-actions"><InstitutionClock />
           <button type="button" className="icon-button institution-signout" title="로그아웃" aria-label="로그아웃" onClick={signOut}><LogOut size={17} /></button></div>
@@ -393,8 +403,8 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
       {screen === 'dashboard' && !room && <InstitutionOverview rooms={displayedRooms} addRoom={() => setEditor('new')} pendingAlerts={pendingAlerts} openAlert={setActiveAlert} experimentAlerts={experiment ? liveEvents : undefined} publicDemo={publicDemo} />}
       {screen === 'dashboard' && room && (showReport ? <div className="institution-report-view">
         <a className="institution-secondary" href={roomHref(room.id)}>{roomLabel(room)} 상세정보로 돌아가기</a>
-        {recording ? <RoomDetails key={`${room.id}/report`} room={room} recording={recording} publicDemo={publicDemo} reportOnly isConfirmed={isConfirmed} /> : <DailyReport subject={room.name ? roomSubject(room) : null} />}
-      </div> : <RoomDetails key={room.id} room={displayedRoom ?? room} recording={recording} publicDemo={publicDemo} liveStatus={liveEnabled ? statuses.get(room.id) : undefined} lastLiveEvent={liveEnabled ? liveEvents.find(event => event.room === room.id) : undefined} edit={() => setEditor(room)} remove={() => setDeleting(room)} isConfirmed={isConfirmed} />)}
+        {recording ? <RoomDetails key={`${room.id}/report`} room={room} recording={recording} publicDemo={publicDemo} reportOnly isConfirmed={isConfirmed} confirm={confirmAlert} roomAlerts={roomAlerts} /> : <DailyReport subject={room.name ? roomSubject(room) : null} />}
+      </div> : <RoomDetails key={room.id} room={displayedRoom ?? room} recording={recording} publicDemo={publicDemo} liveStatus={liveEnabled ? statuses.get(room.id) : undefined} roomAlerts={roomAlerts} edit={() => setEditor(room)} remove={() => setDeleting(room)} isConfirmed={isConfirmed} confirm={confirmAlert} />)}
       {screen === 'subjects' && <Subjects rooms={rooms} add={() => setEditor('new')} edit={setEditor} remove={setDeleting} />}
       {screen === 'alerts' && <AlertHistory alerts={alerts} rooms={rooms} isConfirmed={isConfirmed} openAlert={setActiveAlert} confirm={confirmAlert} />}
       {screen === 'settings' && <InstitutionSettings signOut={signOut} />}

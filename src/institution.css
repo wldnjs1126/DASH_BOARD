@@ -110,7 +110,7 @@
 .institution-current-level { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 12px 6px; min-height: 64px; border-radius: 8px; background: var(--level-soft); color: var(--level-ink); }
 .institution-current-level small { color: inherit; }
 .institution-current-level strong { display: block; font-size: 19px; }
-.institution-risk-reason p { margin-top: 5px; color: #395d76; font-size: 12px; line-height: 1.55; }
+.institution-risk-reason p { margin-top: 5px; color: #34546b; font-size: 13px; line-height: 1.6; }
 .institution-analysis-time { margin-top: 14px; font-size: 11px; color: #38576e; }
 .institution-life-stat { display: flex; gap: 10px; align-items: center; min-height: 100px; padding: 11px; }
 .institution-life-stat > span { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; color: var(--timeline-ink); background: var(--timeline-soft); border-radius: 8px; }
@@ -134,11 +134,11 @@
 .institution-timeline-legend { display: flex; flex-wrap: wrap; gap: 6px 15px; padding: 0; margin: 12px 0 8px; list-style: none; }
 .institution-timeline-legend li { display: flex; gap: 5px; align-items: center; color: #4e7085; font-size: 11px; }
 .institution-timeline-legend i { width: 9px; height: 9px; border-radius: 2px; }
-.institution-timeline-help { min-height: 15px; color: #57758a; font-size: 11px; }
+.institution-timeline-help { min-height: 15px; color: #45647a; font-size: 12px; line-height: 1.5; }
 .institution-filters { display: flex; flex-wrap: wrap; gap: 6px; }
 .institution-table-scroll { overflow-x: auto; }
-.institution-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; white-space: nowrap; }
-.institution-table thead { background: #f3f7f9; color: #496e85; font-size: 11px; }
+.institution-table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.5; text-align: left; white-space: nowrap; }
+.institution-table thead { background: #f3f7f9; color: #3e5f75; font-size: 12px; }
 .institution-table th, .institution-table td { padding: 12px 10px; border-bottom: 1px solid #e4eef2; }
 .institution-table td { color: #355970; }
 .institution-table tbody th { color: #173b59; }
@@ -158,10 +158,18 @@
 .institution-alert-tabs { display: inline-flex; align-items: center; gap: 3px; padding: 4px; border-radius: 9px; background: #eaf4f7; }
 .institution-alert-tabs button { display: inline-flex; gap: 4px; align-items: center; justify-content: center; min-height: 31px; padding: 3px 10px; border: 0; border-radius: 6px; color: #4f7085; background: transparent; font-size: 12px; font-weight: 750; white-space: nowrap; }
 .institution-alert-tabs button[aria-pressed="true"] { background: #fff; color: #075582; box-shadow: 0 2px 5px #1b4d6320; }
-.institution-alert-tabs i { display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; background: #d93e48; color: #fff; font-size: 10px; font-style: normal; }
-.institution-alert-table { min-width: 790px; }
+.institution-alert-tabs i { display: grid; place-items: center; width: 25px; height: 17px; border-radius: 10px; background: #d93e48; color: #fff; font-size: 10px; font-style: normal; font-variant-numeric: tabular-nums; }
+.institution-alert-table-scroll { height: clamp(340px, 48dvh, 460px); overflow: auto; scrollbar-gutter: stable; overflow-anchor: none; }
+.institution-alert-table-scroll:focus-visible { outline: 2px solid #287de0; outline-offset: -2px; }
+.institution-alert-table { min-width: 850px; table-layout: fixed; }
+.institution-alert-table col:nth-child(1), .institution-alert-table col:nth-child(6), .institution-alert-table col:nth-child(9) { width: 12%; }
+.institution-alert-table col:nth-child(2), .institution-alert-table col:nth-child(3), .institution-alert-table col:nth-child(5), .institution-alert-table col:nth-child(7) { width: 8%; }
+.institution-alert-table col:nth-child(8) { width: 11%; }
+.institution-alert-table thead { position: sticky; top: 0; z-index: 1; }
 .institution-alert-table th:first-child, .institution-alert-table td:first-child { padding-left: clamp(13px, 1.8vw, 28px); }
-.institution-alert-table td { padding-block: 14px; }
+.institution-alert-table td { height: 60px; padding-block: 10px; }
+.institution-alert-table td:nth-child(2), .institution-alert-table td:nth-child(3) { overflow: hidden; text-overflow: ellipsis; }
+.institution-alert-table .institution-empty { height: 60px; padding-block: 10px; }
 .institution-alert-table tr.institution-alert-unread { background: linear-gradient(90deg, #edf7fb, white 48%); box-shadow: inset 3px 0 #1095cc; }
 .institution-alert-table time { color: #153752; font-weight: 760; }
 .institution-sms, .institution-retries { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; white-space: nowrap; }
@@ -200,8 +208,8 @@
 .institution-login-story::before { inset: 28% -26% -23% -26%; background: repeating-radial-gradient(circle at 90% 96%, transparent 0 45px, #a8e8f242 46px, transparent 47px 58px); }
 .institution-login-story::after { width: 130%; height: 52%; left: -18%; bottom: -26%; background: #52ccd45a; border-radius: 55% 62% 0 0; transform: rotate(-12deg); }
 .login-platform { display: inline-flex; padding: 6px 10px; border: 1px solid #a1d4eb77; border-radius: 30px; font-size: 10px; font-weight: 780; letter-spacing: .13em; }
-.login-headline { margin-top: 20px; font-size: clamp(28px, 3.9vw, 58px); font-weight: 820; line-height: 1.32; letter-spacing: -.06em; word-break: keep-all; }
-.login-story-copy { margin-top: 20px; color: #e2f5ff; font-size: 14px; line-height: 1.6; }
+.login-headline { margin-top: 20px; font-size: clamp(28px, 3.9vw, 58px); font-weight: 820; line-height: 1.24; letter-spacing: -.04em; word-break: keep-all; }
+.login-story-copy { margin-top: 20px; color: #e2f5ff; font-size: 15px; line-height: 1.65; }
 .institution-login-story > small { position: absolute; bottom: 30px; left: clamp(28px, 7vw, 120px); color: #ceeff8; font-size: 9px; font-weight: 780; letter-spacing: .13em; }
 .institution-login-content { display: grid; align-items: center; justify-items: center; padding: clamp(25px, 6vw, 90px) 21px; }
 .institution-login-inner { width: min(100%, 440px); }
@@ -210,13 +218,13 @@
 .login-welcome { margin-top: 26px; color: #07778e; font-size: 10px; font-weight: 800; letter-spacing: .13em; }
 .institution-login-inner h1 { margin-top: 8px; font-size: clamp(22px, 2.5vw, 34px); letter-spacing: -.055em; font-weight: 760; line-height: 1.37; }
 .institution-login-inner h1:focus { outline: none; }
-.login-intro, .login-note { margin-top: 9px; color: #52738c; font-size: 12px; }
+.login-note { margin-top: 9px; color: #45647a; font-size: 13px; }
 .institution-login-inner form { display: grid; gap: 7px; margin-top: 20px; }
-.institution-login-inner label { font-size: 12px; font-weight: 750; }
+.institution-login-inner label { font-size: 13px; font-weight: 750; }
 .institution-login-inner input { width: 100%; min-height: 44px; padding: 8px 11px; margin-bottom: 7px; border: 1px solid #e5edf2; border-radius: 8px; background: #f2f6f8; color: #183955; }
 .institution-login-inner input::placeholder { color: #6b8295; font-size: 13px; }
 .login-submit { min-height: 43px; background: #0b437d; margin-top: 3px; box-shadow: 0 5px 12px #12416a29; }
-.login-error { color: #b42f3e; font-size: 12px; }
+.login-error { color: #b42f3e; font-size: 13px; }
 .login-note { text-align: center; }
 .login-return { display: flex; align-items: center; gap: 6px; margin-top: 18px; padding-top: 13px; border-top: 1px solid #e4edf2; color: #315b7b; font-size: 12px; text-decoration: none; }
 .login-return:hover { text-decoration: underline; }

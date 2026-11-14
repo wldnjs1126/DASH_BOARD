@@ -95,19 +95,23 @@ export function InstitutionOverview({ rooms, addRoom, pendingAlerts, openAlert, 
   </main>
 }
 
-export function RoomDetailHeader({ room, recording }: { room: RoomRecord; recording?: ExperimentRecording }) {
+export function RoomDetailHeader({ room, recording, subtitle }: { room: RoomRecord; recording?: ExperimentRecording; subtitle: string }) {
   return <header className="institution-header institution-detail-header">
-    <h1 tabIndex={-1}>{roomLabel(room)} 상세정보</h1>
+    <div>
+      <h1 tabIndex={-1}>{roomLabel(room)} 상세정보</h1>
+      <p className="institution-header-subtitle">{subtitle}</p>
+    </div>
     <div className="institution-header-actions"><InstitutionClock />{!recording && <span className="institution-updated"><Clock3 size={16} /><span><small>마지막 갱신</small>{room.online ? previewClock : '—'}</span></span>}
       <a href="#demo" className="institution-primary"><ArrowLeft size={16} />전체 대시보드로 돌아가기</a></div>
   </header>
 }
 
-export function RoomDetails({ room, edit, remove, isConfirmed, recording, liveStatus, lastLiveEvent, reportOnly = false, publicDemo = false }: {
-  room: RoomRecord; edit?: () => void; remove?: () => void; isConfirmed: (event: CareEvent) => boolean; recording?: ExperimentRecording; liveStatus?: LiveRoomStatus; lastLiveEvent?: CareEvent; reportOnly?: boolean; publicDemo?: boolean
+export function RoomDetails({ room, edit, remove, isConfirmed, confirm, recording, liveStatus, roomAlerts, reportOnly = false, publicDemo = false }: {
+  room: RoomRecord; edit?: () => void; remove?: () => void; isConfirmed: (event: CareEvent) => boolean; confirm: (event: CareEvent) => void; recording?: ExperimentRecording; liveStatus?: LiveRoomStatus; roomAlerts: CareEvent[]; reportOnly?: boolean; publicDemo?: boolean
 }) {
   const [date, setDate] = useState(INSTITUTION_DATE)
   const [timelineFocus, setTimelineFocus] = useState('')
+  const [lastLiveEvent] = roomAlerts
   const day = recording ? experimentDay(recording) : getRoomDay(room, date)
   const previous = getRoomDay(room, PREVIOUS_DATE)
   const recorded = day.segments.length > 0
@@ -170,16 +174,17 @@ export function RoomDetails({ room, edit, remove, isConfirmed, recording, liveSt
       <ul className="institution-timeline-legend">{Object.entries(recording ? EXPERIMENT_TIMELINE_LABELS : TIMELINE_LABELS).map(([kind, label]) => <li key={kind}><i className={`timeline-segment timeline-${kind}`} />{label}</li>)}</ul>
       <p className="institution-timeline-help" aria-live="polite">{recorded ? timelineFocus || '구간을 선택하면 시작 시각과 종료 시각을 확인할 수 있습니다.' : '이 날짜에 등록된 생활 기록이 없습니다.'}</p>
     </section>
-    <EventHistory events={recording ? experimentEvents(recording) : getRoomHistory(room.id)} experiment={Boolean(recording)} isConfirmed={isConfirmed} />
+    <EventHistory events={[...roomAlerts, ...(recording ? experimentEvents(recording) : getRoomHistory(room.id))]} experiment={Boolean(recording)} isConfirmed={isConfirmed} confirm={confirm} />
   </main>
 }
 
-function EventHistory({ events, experiment, isConfirmed }: { events: CareEvent[]; experiment: boolean; isConfirmed: (event: CareEvent) => boolean }) {
+function EventHistory({ events, experiment, isConfirmed, confirm }: { events: CareEvent[]; experiment: boolean; isConfirmed: (event: CareEvent) => boolean; confirm: (event: CareEvent) => void }) {
   const [date, setDate] = useState('')
   const [level, setLevel] = useState('')
   const [status, setStatus] = useState('')
   const [expanded, setExpanded] = useState<string | null>('long-bed-203')
-  const shown = events.filter(event => (!date || event.date === date) && (!level || event.level === level) && (!status || isConfirmed(event) === (status === 'confirmed')))
+  const shown = events.map(event => ({ event, confirmation: experiment && event.level === 'normal' ? null : isConfirmed(event) ? 'confirmed' : 'pending' }))
+    .filter(({ event, confirmation }) => (!date || event.date === date) && (!level || event.level === level) && (!status || confirmation === status))
 
   return <section className="institution-panel institution-history" aria-labelledby="institution-history-title">
     <div className="institution-section-head"><h2 id="institution-history-title">이벤트 이력</h2><div className="institution-filters">
@@ -188,12 +193,12 @@ function EventHistory({ events, experiment, isConfirmed }: { events: CareEvent[]
       <select aria-label="이벤트 확인 여부" value={status} onChange={event => setStatus(event.target.value)}><option value="">전체 확인 여부</option><option value="pending">미확인</option><option value="confirmed">확인 완료</option></select>
     </div></div>
     <div className="institution-table-scroll"><table className="institution-table">
-      <thead><tr><th>{experiment ? '동기화 시작 시각' : '시작 시각'}</th><th>종류</th><th>지속시간</th><th>등급</th><th>확인 여부</th><th>상세 보기</th></tr></thead>
-      <tbody>{shown.map(event => <Fragment key={event.id}><tr>
-        <td>{experiment ? event.time : `${displayedDate(event.date)} ${event.time}`}</td><th scope="row">{event.type}</th><td>{event.duration}</td><td><LevelBadge level={event.level} /></td>
-        <td>{experiment && event.level === 'normal' ? '—' : <span className={`institution-confirm-state${isConfirmed(event) ? '' : ' is-pending'}`}>{isConfirmed(event) ? '확인 완료' : '미확인'}</span>}</td>
+      <thead><tr><th>시작 시각</th><th>종류</th><th>지속시간</th><th>등급</th><th>확인 여부</th><th>상세 보기</th></tr></thead>
+      <tbody>{shown.map(({ event, confirmation }) => <Fragment key={event.id}><tr>
+        <td>{experiment && !event.simulated ? event.time : `${displayedDate(event.date)} ${event.time}`}</td><th scope="row">{event.type}{event.simulated && <small> · 시뮬레이션</small>}</th><td>{event.duration}</td><td><LevelBadge level={event.level} /></td>
+        <td>{confirmation === null ? '—' : <span className={`institution-confirm-state${confirmation === 'pending' ? ' is-pending' : ''}`}>{confirmation === 'confirmed' ? '확인 완료' : '미확인'}</span>}</td>
         <td><button type="button" className="institution-text-button" aria-expanded={expanded === event.id} aria-label={`${event.type} 상세 보기`} onClick={() => setExpanded(expanded === event.id ? null : event.id)}>상세 {expanded === event.id ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</button></td>
-      </tr>{expanded === event.id && <tr className="institution-event-detail"><td colSpan={6}><div><span><small>감지 위치</small><strong>{event.location}</strong></span><p>{event.note}</p></div></td></tr>}</Fragment>)}
+      </tr>{expanded === event.id && <tr className="institution-event-detail"><td colSpan={6}><div><span><small>감지 위치</small><strong>{event.location}</strong></span><p>{event.note}</p>{confirmation === 'pending' && <button type="button" className="institution-secondary" onClick={() => confirm(event)}>확인 처리</button>}</div></td></tr>}</Fragment>)}
       {!shown.length && <tr><td colSpan={6} className="institution-empty">조건에 맞는 이벤트가 없습니다.</td></tr>}</tbody>
     </table></div>
   </section>
@@ -212,7 +217,9 @@ export function AlertHistory({ alerts, rooms, isConfirmed, openAlert, confirm }:
         {([['all', '전체'], ['pending', '미확인'], ['confirmed', '확인 완료']] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)}>{label}{key === 'pending' && <i>{pending}</i>}</button>)}
       </div></div>
     </header>
-    <div className="institution-table-scroll"><table className="institution-table institution-alert-table">
+    <div className="institution-table-scroll institution-alert-table-scroll" role="region" aria-label="알림 목록" tabIndex={0}>
+      <table className="institution-table institution-alert-table">
+      <colgroup><col /><col /><col /><col /><col /><col /><col /><col /><col /></colgroup>
       <thead><tr><th>발생 시각</th><th>호실</th><th>이름</th><th>이벤트 종류</th><th>등급</th><th>문자 발송</th><th>재전송</th><th>확인 상태</th><th><span className="institution-sr-only">확인</span></th></tr></thead>
       <tbody>{shown.map(event => {
         const confirmed = isConfirmed(event)

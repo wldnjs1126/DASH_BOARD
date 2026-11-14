@@ -29,9 +29,9 @@ const events = [
   { icon: UserRound, title: '재실·부재', text: '생활공간에 대상자가 있는지 확인합니다.' },
   { icon: Footprints, title: '움직임 감지', text: '공간 안에서 움직임이 발생한 위치와 이동 경로를 살핍니다.' },
   { icon: Clock3, title: '장시간 미움직임', text: '일정 시간 이상 움직임이 감지되지 않는 상태를 확인합니다.' },
-  { icon: BedDouble, title: '침대 체류', text: '침대 주변에 머문 시간과 체류 상태를 확인합니다.' },
+  { icon: BedDouble, title: '침대 체류', text: '침대에 머무는 상태를 확인합니다.' },
   { icon: Moon, title: '수면 추정', text: '침대 체류와 움직임 패턴을 바탕으로 수면 상태를 추정합니다.' },
-  { icon: DoorOpen, title: '야간이탈', text: '야간에 침대에서 일어나거나 생활공간을 벗어나는 상황을 확인합니다.' },
+  { icon: DoorOpen, title: '야간이탈', text: '야간에 생활공간을 벗어나는 상황을 확인합니다.' },
   { icon: TriangleAlert, title: '낙상 의심', text: '높이가 급격히 낮아지고 움직임이 줄어드는 등 낙상이 의심되는 변화를 확인합니다.' },
 ]
 
@@ -58,17 +58,6 @@ const exampleResidents = [
   { name: '이○○', presence: '재실', event: '야간이탈 1회', risk: riskLevels[1] },
   { name: '박○○', presence: '부재', event: '외출', risk: riskLevels[0] },
   { name: '최○○', presence: '재실', event: '장시간 미움직임', risk: riskLevels[2] },
-]
-
-const detailsLinks = [
-  ['service', '서비스 소개'],
-  ['technology', '기술 소개'],
-  ['how-it-works', '작동 방식'],
-  ['features', '감지 이벤트'],
-  ['ai-analysis', 'AI 분석'],
-  ['care-users', '이용 대상'],
-  ['dashboard', '모니터링'],
-  ['privacy', '프라이버시'],
 ]
 
 function RiskBadge({ risk }: { risk: typeof riskLevels[number] }) {
@@ -139,8 +128,6 @@ export function Landing({ dashboardPreview, signedIn }: { dashboardPreview: Reac
         <nav aria-label="서비스 소개 메뉴">
           <a href="#service">서비스 소개</a>
           <a href="#technology">기술 소개</a>
-          <a href="#features">감지 이벤트</a>
-          <a href="#ai-analysis">AI 분석</a>
         </nav>
         <LandingAction href={entry}>{entryLabel}</LandingAction>
       </div>
@@ -151,153 +138,146 @@ export function Landing({ dashboardPreview, signedIn }: { dashboardPreview: Reac
         <div className="landing-hero-copy">
           <p className="landing-kicker"><Radar size={17} aria-hidden="true" /> mmWave 센서 · 시니어 돌봄</p>
           <h1 id="landing-title" tabIndex={-1}>카메라 없이<br />생활 변화를<br className="landing-hero-break" /> <em>살핍니다</em></h1>
-          <p className="landing-lead">CareWave는 센서로 움직임을 감지하고 AI로 평소와 다른 생활 변화를 분석합니다. 기관 관리자와 보호자는 낙상 의심과 야간이탈 신호를 한눈에 확인할 수 있습니다.</p>
+          <p className="landing-lead">CareWave는 센서로 움직임을 감지하고 AI로 평소와 다른 생활 변화를 분석합니다. 기관 관리자와 보호자는 7종 이벤트를 한눈에 확인할 수 있습니다.</p>
           <div className="landing-hero-actions">
-            <LandingAction href={entry} light>{entryLabel}</LandingAction>
+            <LandingAction href="#simulation" light>시뮬레이션 체험</LandingAction>
             <a className="landing-text-link" href="#service">서비스 살펴보기 <ArrowDown size={15} aria-hidden="true" /></a>
           </div>
-          <p className="landing-demo-note"><Play size={13} aria-hidden="true" /> 가상 병실에서 11개 이벤트를 직접 재생할 수 있습니다.</p>
+          <p className="landing-demo-note"><Play size={13} aria-hidden="true" /> 가상 병실에서 7종 이벤트를 직접 재생할 수 있습니다.</p>
         </div>
         <RoomPreview />
         </div>
       </section>
 
-      <section id="service" className="landing-service" aria-labelledby="service-title">
-        <div className="landing-shell">
+      <section id="service" className="landing-group" aria-labelledby="service-title">
+        <div className="landing-service">
+          <div className="landing-shell">
+            <div className="landing-section-heading">
+              <h2 id="service-title" className="landing-group-title">서비스 소개</h2>
+              <p className="landing-section-subtitle">시니어의 일상을 살피는 서비스</p>
+              <p>기관에서는 여러 병실을 관리하고, 보호자는 떨어져 지내는 가족의 상태를 확인할 수 있습니다. 침실에서도 카메라 없이 움직임을 감지합니다.</p>
+            </div>
+            <div className="landing-benefits">
+              <article><span><VideoOff aria-hidden="true" /></span><h3>개인 생활공간 보호</h3><p>침실과 같은 공간에서도 영상 촬영 없이 재실 여부와 움직임을 감지합니다.</p></article>
+              <article><span><Activity aria-hidden="true" /></span><h3>평소와 다른 변화 감지</h3><p>낙상 의심, 장시간 미움직임, 야간이탈을 확인하고 활동·수면의 변화도 살핍니다.</p></article>
+              <article><span><ClipboardList aria-hidden="true" /></span><h3>상태와 위험도 통합 확인</h3><p>현재 상태, 최근 이벤트, 위험도와 생활패턴을 한 화면에서 확인합니다.</p></article>
+            </div>
+          </div>
+        </div>
+
+        <section id="care-users" className="landing-service" aria-labelledby="care-users-title">
+          <div className="landing-shell">
+            <div className="landing-section-heading">
+              <h3 className="landing-subsection-title" id="care-users-title">이용 대상</h3>
+              <p className="landing-section-subtitle">관리자와 보호자가 확인하는 정보</p>
+            </div>
+            <div className="landing-detail-grid">
+              {careUsers.map(({ icon: Icon, title, description, features }) => <article className="landing-detail-card" key={title}>
+                <h4 className="landing-icon-heading"><Icon size={20} aria-hidden="true" />{title}</h4>
+                <p>{description}</p>
+                <ul className="landing-checklist">{features.map(feature => <li key={feature}>{feature}</li>)}</ul>
+              </article>)}
+            </div>
+          </div>
+        </section>
+
+        <section id="dashboard" className="landing-shell landing-detail-section" aria-labelledby="monitoring-title">
           <div className="landing-section-heading">
-            <p className="landing-kicker">서비스 소개</p>
-            <h2 id="service-title">확인이 필요한 순간을<br className="landing-mobile-break" /> 한눈에</h2>
-            <p>기관 관리자가 여러 시니어의 상태를 계속 살피거나, 보호자가 떨어져 지내는 가족의 안전을 하루 종일 확인하기는 어렵습니다. 침실처럼 카메라 설치가 부담스러운 공간에서도 확인이 필요한 변화를 파악할 수 있도록 CareWave를 설계했습니다.</p>
+            <h3 className="landing-subsection-title" id="monitoring-title">통합 모니터링</h3>
+            <p>병실별 재실 상태와 위험도를 보고, 확인이 필요한 알림을 열 수 있습니다.</p>
           </div>
-          <div className="landing-benefits">
-            <article><span><VideoOff aria-hidden="true" /></span><h3>개인 생활공간 보호</h3><p>침실과 같은 공간에서도 영상 촬영 없이 재실 여부와 움직임을 감지합니다.</p></article>
-            <article><span><Activity aria-hidden="true" /></span><h3>평소와 다른 변화 감지</h3><p>낙상 의심, 장시간 미움직임, 야간이탈을 확인하고 활동·수면의 변화도 살핍니다.</p></article>
-            <article><span><ClipboardList aria-hidden="true" /></span><h3>상태와 위험도 통합 확인</h3><p>현재 상태, 최근 이벤트, 위험도와 생활패턴을 한 화면에서 확인합니다.</p></article>
+          <div className="landing-detail-grid landing-monitor-grid">
+            <article className="landing-detail-card">
+              <div className="landing-card-heading"><h4>대상자 현황</h4></div>
+              <table className="landing-residents">
+                <thead><tr><th scope="col">대상자</th><th scope="col">재실</th><th scope="col">최근 이벤트</th><th scope="col">위험도</th></tr></thead>
+                <tbody>{exampleResidents.map(row => <tr key={row.name}>
+                  <th scope="row">{row.name}</th><td>{row.presence}</td><td>{row.event}</td><td><RiskBadge risk={row.risk} /></td>
+                </tr>)}</tbody>
+              </table>
+            </article>
+            <article className="landing-detail-card">
+              <h4 className="landing-icon-heading"><BellRing size={19} aria-hidden="true" />위험 알림</h4>
+              <ul className="landing-risk-list">
+                <li><span>장시간 미움직임 확인</span><RiskBadge risk={riskLevels[2]} /></li>
+                <li><span>야간이탈 횟수 증가</span><RiskBadge risk={riskLevels[1]} /></li>
+              </ul>
+            </article>
           </div>
-        </div>
+        </section>
+
+        <section id="privacy" className="landing-service" aria-labelledby="privacy-title">
+          <div className="landing-shell">
+            <div className="landing-section-heading">
+              <h3 className="landing-subsection-title" id="privacy-title">프라이버시</h3>
+              <p>카메라로 촬영하지 않습니다. mmWave 센서가 감지한 재실 여부, 위치, 움직임을 화면에 표시합니다.</p>
+            </div>
+          </div>
+        </section>
       </section>
 
-      <nav className="landing-shell landing-contents" aria-label="서비스 상세 목차">
-        {detailsLinks.map(([id, label]) => <a key={id} href={`#${id}`}>{label}</a>)}
-      </nav>
-
-      <section id="how-it-works" className="landing-shell landing-workflow" aria-labelledby="workflow-title">
-        <div className="landing-section-heading">
-          <p className="landing-kicker">작동 방식</p>
-          <h2 id="workflow-title">센서 신호가 돌봄 정보로 바뀌는 과정</h2>
-        </div>
-        <ol className="landing-steps">
-          {stages.map(({ icon: Icon, title, text }, index) =>
-            <li key={title}><span className="landing-step-icon"><Icon aria-hidden="true" /></span><h3>{title}</h3><p>{text}</p>
-              {index < stages.length - 1 && <ChevronRight className="landing-step-arrow" size={18} aria-hidden="true" />}
-            </li>,
-          )}
-        </ol>
-      </section>
-
-      <section id="technology" className="landing-shell landing-detail-section" aria-labelledby="technology-title">
-        <div className="landing-section-heading">
-          <p className="landing-kicker">기술 소개</p>
-          <h2 id="technology-title">레이더가 감지한 움직임을 2D·3D로 확인합니다</h2>
-          <p>이벤트를 선택하면 실증 공간의 이동 경로, 3D 점군, 높이와 속도 그래프가 같은 시간에 바뀝니다.</p>
-        </div>
-        <p className="landing-dashboard-notice">※ 팝업 메시지는 위험도가 ‘주의’ 또는 ‘위험’일 때만 표시됩니다.</p>
-        <div className="landing-dashboard-frame">
-          <div className="landing-dashboard-bar">
-            <span className="landing-sample"><Play size={13} aria-hidden="true" /> 시뮬레이션 체험</span>
-            <p className="landing-dashboard-instructions">아래 <strong>움직임</strong> 버튼을 눌러 이동 경로를 따라가 보세요. <strong>일반 낙상</strong>을 누르면 높이가 급격히 낮아지고 위험 경고가 뜹니다.</p>
-          </div>
-          {dashboardPreview}
-        </div>
-      </section>
-
-      <section id="features" className="landing-service" aria-labelledby="features-title">
-        <div className="landing-shell">
+      <section id="technology" className="landing-group" aria-labelledby="technology-title">
+        <div className="landing-shell landing-detail-section">
           <div className="landing-section-heading">
-            <p className="landing-kicker">감지 이벤트</p>
-            <h2 id="features-title">센서 신호를 일상 행동으로 읽습니다</h2>
-            <p>센서에서 얻은 재실 여부, 위치, 높이, 움직임을 생활 이벤트로 정리해 돌봄에 필요한 상황을 확인할 수 있습니다.</p>
+            <h2 id="technology-title" className="landing-group-title">기술 소개</h2>
+            <p className="landing-section-subtitle">레이더가 감지한 움직임을 2D·3D로 확인합니다</p>
+            <p>이벤트를 누르면 이동 경로와 3D 점군, 높이와 속도 그래프가 함께 움직입니다.</p>
           </div>
-          <ul className="landing-event-list">
-            {events.map(({ icon: Icon, title, text }) => <li key={title}>
-              <span className="landing-step-icon"><Icon aria-hidden="true" /></span><div><h3>{title}</h3><p>{text}</p></div>
-            </li>)}
-          </ul>
+          <p id="simulation" className="landing-dashboard-notice">※ 팝업 메시지는 위험도가 ‘주의’ 또는 ‘위험’일 때만 표시됩니다.</p>
+          <div className="landing-dashboard-frame">
+            <div className="landing-dashboard-bar">
+              <span className="landing-sample"><Play size={13} aria-hidden="true" /> 시뮬레이션 체험</span>
+              <p className="landing-dashboard-instructions">아래 <strong>움직임</strong> 버튼을 눌러 이동 경로를 따라가 보세요. <strong>일반 낙상</strong>을 누르면 높이가 급격히 낮아지고 위험 경고가 뜹니다.</p>
+            </div>
+            {dashboardPreview}
+          </div>
         </div>
-      </section>
 
-      <section id="ai-analysis" className="landing-shell landing-detail-section" aria-labelledby="analysis-title">
-        <div className="landing-section-heading">
-          <p className="landing-kicker">개인별 AI 분석</p>
-          <h2 id="analysis-title">하루의 기록을 평소 생활패턴과 비교합니다</h2>
-          <p>일별 생활 데이터를 쌓아 개인의 평소 활동과 수면 패턴을 파악합니다. 활동이 줄거나 야간이탈이 늘어나는 등 이전과 달라진 흐름을 비교해 확인 우선순위를 판단합니다.</p>
-        </div>
-        <div className="landing-detail-grid">
-          <article className="landing-detail-card">
-            <h3 className="landing-icon-heading"><BrainCircuit size={20} aria-hidden="true" />개인별 생활패턴</h3>
-            <p>활동 시간, 수면 추정 시간, 야간이탈과 장시간 미움직임 횟수를 일별로 집계합니다. 평소 기준과 비교해 달라진 항목을 확인하고, 해당 이벤트의 발생 시각을 살펴볼 수 있습니다.</p>
-          </article>
-          <article className="landing-detail-card">
-            <h3>서비스의 위험도 기준</h3>
-            <ul className="landing-risk-list">
-              {riskLevels.map(risk => <li key={risk.level}><span>{risk.text}</span><RiskBadge risk={risk} /></li>)}
+        <section id="how-it-works" className="landing-shell landing-workflow" aria-labelledby="workflow-title">
+          <div className="landing-section-heading">
+            <h3 className="landing-subsection-title" id="workflow-title">작동 방식</h3>
+            <p className="landing-section-subtitle">센서 신호가 돌봄 정보로 바뀌는 과정</p>
+          </div>
+          <ol className="landing-steps">
+            {stages.map(({ icon: Icon, title, text }, index) =>
+              <li key={title}><span className="landing-step-icon"><Icon aria-hidden="true" /></span><h4>{title}</h4><p>{text}</p>
+                {index < stages.length - 1 && <ChevronRight className="landing-step-arrow" size={18} aria-hidden="true" />}
+              </li>,
+            )}
+          </ol>
+        </section>
+
+        <section id="features" className="landing-service" aria-labelledby="features-title">
+          <div className="landing-shell">
+            <div className="landing-section-heading">
+              <h3 className="landing-subsection-title" id="features-title">감지 이벤트</h3>
+            </div>
+            <ul className="landing-event-list">
+              {events.map(({ icon: Icon, title, text }) => <li key={title}>
+                <span className="landing-step-icon"><Icon aria-hidden="true" /></span><div><h4>{title}</h4><p>{text}</p></div>
+              </li>)}
             </ul>
-          </article>
-        </div>
-      </section>
+          </div>
+        </section>
 
-      <section id="care-users" className="landing-service" aria-labelledby="care-users-title">
-        <div className="landing-shell">
+        <section id="ai-analysis" className="landing-shell landing-detail-section" aria-labelledby="analysis-title">
           <div className="landing-section-heading">
-            <p className="landing-kicker">이용 대상</p>
-            <h2 id="care-users-title">관리자와 보호자가 확인하는 정보</h2>
+            <h3 className="landing-subsection-title" id="analysis-title">개인별 AI 분석</h3>
+            <p>평소보다 활동이 줄었는지, 야간이탈이 늘었는지 하루 기록을 비교해 먼저 확인할 대상을 파악합니다.</p>
           </div>
           <div className="landing-detail-grid">
-            {careUsers.map(({ icon: Icon, title, description, features }) => <article className="landing-detail-card" key={title}>
-              <h3 className="landing-icon-heading"><Icon size={20} aria-hidden="true" />{title}</h3>
-              <p>{description}</p>
-              <ul className="landing-checklist">{features.map(feature => <li key={feature}>{feature}</li>)}</ul>
-            </article>)}
+            <article className="landing-detail-card">
+              <h4 className="landing-icon-heading"><BrainCircuit size={20} aria-hidden="true" />개인별 생활패턴</h4>
+              <p>활동 시간, 수면 추정 시간, 야간이탈과 장시간 미움직임 횟수를 일별로 집계합니다. 평소 기준과 비교해 달라진 항목을 확인하고, 해당 이벤트의 발생 시각을 살펴볼 수 있습니다.</p>
+            </article>
+            <article className="landing-detail-card">
+              <h4>서비스의 위험도 기준</h4>
+              <ul className="landing-risk-list">
+                {riskLevels.map(risk => <li key={risk.level}><span>{risk.text}</span><RiskBadge risk={risk} /></li>)}
+              </ul>
+            </article>
           </div>
-        </div>
-      </section>
-
-      <section id="dashboard" className="landing-shell landing-detail-section" aria-labelledby="monitoring-title">
-        <div className="landing-section-heading">
-          <p className="landing-kicker">통합 모니터링</p>
-          <h2 id="monitoring-title">대상자 현황과 위험 알림을 한곳에서</h2>
-          <p>기관 관리자는 병실별 위험도, 센서 운영 상태와 확인이 필요한 알림을 살펴볼 수 있습니다.</p>
-        </div>
-        <div className="landing-detail-grid landing-monitor-grid">
-          <article className="landing-detail-card">
-            <div className="landing-card-heading"><h3>대상자 현황</h3></div>
-            <table className="landing-residents">
-              <thead><tr><th scope="col">대상자</th><th scope="col">재실</th><th scope="col">최근 이벤트</th><th scope="col">위험도</th></tr></thead>
-              <tbody>{exampleResidents.map(row => <tr key={row.name}>
-                <th scope="row">{row.name}</th><td>{row.presence}</td><td>{row.event}</td><td><RiskBadge risk={row.risk} /></td>
-              </tr>)}</tbody>
-            </table>
-          </article>
-          <article className="landing-detail-card">
-            <h3 className="landing-icon-heading"><BellRing size={19} aria-hidden="true" />위험 알림</h3>
-            <ul className="landing-risk-list">
-              <li><span>장시간 미움직임 확인</span><RiskBadge risk={riskLevels[2]} /></li>
-              <li><span>야간이탈 횟수 증가</span><RiskBadge risk={riskLevels[1]} /></li>
-            </ul>
-            <p>일반·침대·화장실 입구·이동 중 낙상과 일상 이벤트를 포함한 11개 시나리오를 재생할 수 있습니다.</p>
-          </article>
-        </div>
-      </section>
-
-      <section id="privacy" className="landing-service" aria-labelledby="privacy-title">
-        <div className="landing-shell landing-privacy">
-          <span className="landing-privacy-icon"><VideoOff size={34} aria-hidden="true" /></span>
-          <div className="landing-section-heading">
-            <p className="landing-kicker">프라이버시</p>
-            <h2 id="privacy-title">카메라 영상 없이 생활 상태를 감지합니다</h2>
-            <p>침실 같은 개인 생활공간에서는 mmWave 센서로 재실 여부, 위치, 움직임을 감지합니다. 돌봄에 필요한 생활 이벤트와 패턴을 중심으로 화면에 표시합니다.</p>
-          </div>
-        </div>
+        </section>
       </section>
 
       <section className="landing-shell landing-final" aria-labelledby="landing-final-title">

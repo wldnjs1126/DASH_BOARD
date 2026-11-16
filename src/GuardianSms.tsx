@@ -4,7 +4,7 @@ import { ViewDialog } from './visuals.tsx'
 
 export type SmsKind = 'caution' | 'danger'
 export type SmsResult = 'accepted' | 'failed' | 'unknown'
-type SmsResponse = { token?: string; kind?: SmsKind; delay?: number; sms?: SmsResult; error?: string }
+type SmsResponse = { token?: string; kind?: SmsKind; delay?: number; sms?: SmsResult; smsDetail?: string; error?: string }
 
 export async function guardianSms(body: object): Promise<SmsResponse> {
   const response = await fetch('/api/guardian-sms', {

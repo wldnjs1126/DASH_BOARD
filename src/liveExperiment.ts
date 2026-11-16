@@ -68,8 +68,8 @@ export function useLiveExperiment(enabled: boolean, rooms: RoomRecord[], paused 
     setEvents([])
   }
 
-  function updateSms(id: string, sms: CareEvent['sms']) {
-    setEvents(previous => previous.map(event => event.id === id ? { ...event, sms } : event))
+  function updateSms(id: string, sms: CareEvent['sms'], smsDetail?: string) {
+    setEvents(previous => previous.map(event => event.id === id ? { ...event, sms, smsDetail } : event))
   }
 
   return { events, statuses, reset, addEvent, updateSms }

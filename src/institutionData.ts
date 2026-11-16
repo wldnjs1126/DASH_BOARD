@@ -28,6 +28,7 @@ export const ROOMS: readonly RoomRecord[] = [
 export const SMS_LABELS = { sent: '발송 완료', sending: '요청 중', accepted: '발송 접수', failed: '발송 실패', none: '미발송', unknown: '기록 없음', unverified: '접수 확인 불가' } as const
 export type CareEvent = {
   simulated?: boolean
+  smsDetail?: string
   id: string; room: string; date: string; time: string; detectedTime?: string; type: string; duration: string
   level: Level; confirmed: boolean; sms: keyof typeof SMS_LABELS; retries: number | null; location: string; note: string
 }

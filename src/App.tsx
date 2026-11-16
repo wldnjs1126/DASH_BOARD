@@ -394,12 +394,12 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
       lastShownEvent.current = event.id
       setActiveAlert({ ...event, sms: 'sending' })
       updateSms(event.id, 'sending')
-      function updateStatus(sms: CareEvent['sms']) {
-        updateSms(event.id, sms)
-        setActiveAlert(current => current?.id === event.id ? { ...current, sms } : current)
+      function updateStatus(sms: CareEvent['sms'], smsDetail?: string) {
+        updateSms(event.id, sms, smsDetail)
+        setActiveAlert(current => current?.id === event.id ? { ...current, sms, smsDetail } : current)
       }
       void guardianSms({ action: 'alert', token }).then(result => {
-        updateStatus(result.sms === 'unknown' ? 'unverified' : result.sms ?? 'unverified')
+        updateStatus(result.sms === 'unknown' ? 'unverified' : result.sms ?? 'unverified', result.smsDetail)
       }, () => updateStatus('unverified'))
     }, delay)
     smsSession.current = { token, timer }

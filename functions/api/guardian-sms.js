@@ -181,8 +181,11 @@ export async function onRequestPost({ request, env }) {
         AND due <= ? AND expires > ? RETURNING phone, room, kind`).bind(id, now, now).first()
       if (!claimed?.phone) return reply({ error: '문자 체험이 종료되었거나 이미 처리되었습니다.' }, 409)
       const phone = await decryptPhone(env.SOLAPI_API_SECRET, claimed.phone)
-      const { status } = await sendSms(env, phone, `[CareWave 체험] ${claimed.room} ${kinds[claimed.kind]} 알림입니다.`)
-      return reply({ sms: status === 'accepted' || status === 'unknown' ? status : 'failed' })
+      const { status, detail } = await sendSms(env, phone, `[CareWave 체험] ${claimed.room} ${kinds[claimed.kind]} 알림입니다.`)
+      if (status === 'accepted' || status === 'unknown') return reply({ sms: status })
+      const reasons = { sourceIp: '발송 서버 IP 차단', permission: 'SMS 발송 권한 없음', credentials: 'API 키 인증 실패', forbidden: 'SOLAPI 요청 거절', sender: '발신번호 등록 오류', balance: 'SOLAPI 잔액 오류' }
+      const reason = reasons[status]
+      return reply({ sms: 'failed', smsDetail: [reason, detail && `SOLAPI ${detail}`].filter(Boolean).join(' · ') })
     }
     return reply({ error: '잘못된 요청입니다.' }, 400)
   } catch {

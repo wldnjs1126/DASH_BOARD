@@ -199,6 +199,7 @@
 .institution-alarm-body dl div { justify-content: space-between; }
 .institution-alarm-body dt { color: #5a768c; }
 .institution-alarm-body dd { color: #234863; font-weight: 750; text-align: right; }
+.institution-sms-detail { display: block; margin-top: 3px; color: #a72a37; font-size: .75rem; }
 .institution-alarm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
 .institution-alarm-actions .institution-primary { background: var(--level-fill); border-color: var(--level-fill); }
 

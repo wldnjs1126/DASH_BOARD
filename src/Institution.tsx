@@ -228,7 +228,7 @@ export function AlertHistory({ alerts, rooms, isConfirmed, openAlert, confirm }:
           <td><time dateTime={`${event.date}T${event.time}`}>{event.time.slice(0, 5)}</time></td>
           <td><a className="institution-room-link" href={roomHref(event.room)}>{roomLabel(room)}</a></td><td>{room.name || '미배정'}</td>
           <td>{event.level === 'danger' || event.level === 'caution' ? <button className="institution-event-button" type="button" onClick={() => openAlert(event)}>{event.type}</button> : <strong>{event.type}</strong>}</td>
-          <td><LevelBadge level={event.level} /></td><td><span className={`institution-sms sms-${event.sms}`}><MessageSquare size={14} />{SMS_LABELS[event.sms]}</span></td>
+          <td><LevelBadge level={event.level} /></td><td><span className={`institution-sms sms-${event.sms}`} title={event.smsDetail}><MessageSquare size={14} />{SMS_LABELS[event.sms]}</span></td>
           <td><span className="institution-retries">{event.retries ? <><Repeat2 size={14} />{event.retries}회</> : '—'}</span></td>
           <td><span className={`institution-confirm-state${confirmed ? '' : ' is-pending'}`}><i />{confirmed ? '확인 완료' : '미확인'}</span></td>
           <td>{confirmed ? <span className="institution-secondary institution-alert-action"><Check size={14} />완료</span> : <button className="institution-primary institution-alert-action" type="button" aria-label={`${roomLabel(room)} ${event.type} 확인`} onClick={() => confirm(event)}>확인</button>}</td>
@@ -256,7 +256,7 @@ export function InstitutionAlert({ event, room, close, confirm }: { event: CareE
     <div className="institution-alarm-body">
       <h2 id={title}>{roomLabel(room)}</h2><p className="institution-alarm-name">{room.name || '미배정'}</p><p className="institution-alarm-event">{event.type}</p>
       <dl><div><dt><Clock3 size={15} />{event.date === EXPERIMENT_DATE && event.sms === 'unknown' ? '동기화 감지 시각' : '발생 시각'}</dt><dd>{event.sms === 'unknown' ? event.detectedTime ?? event.time : `${displayedDate(event.date)} ${event.time}`}</dd></div>
-        <div><dt><MessageSquare size={15} />문자 발송</dt><dd>{sms}</dd></div></dl>
+        <div><dt><MessageSquare size={15} />문자 발송</dt><dd aria-live="polite">{sms}{event.smsDetail && <small className="institution-sms-detail">{event.smsDetail}</small>}</dd></div></dl>
       <div className="institution-alarm-actions"><a className="institution-secondary" href={roomHref(event.room)} onClick={close}>상세보기 <ChevronRight size={15} /></a>
         <button className="institution-primary" type="button" autoFocus onClick={confirm}><Check size={16} />확인</button></div>
     </div>

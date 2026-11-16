@@ -100,6 +100,20 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
       assert.match(result.error, expected)
       assert.doesNotMatch(result.error, /private-detail/)
     }
+
+    providerStatus = 200
+    providerResult = undefined
+    const [alertStart, alertSession] = await start('01012340010')
+    assert.equal(alertStart, 200)
+    const [alertVerified, alertTiming] = await call({ action: 'verify', token: alertSession.token, code: codeOf(sent.at(-1)) })
+    assert.equal(alertVerified, 200)
+    now += alertTiming.delay
+    providerStatus = 403
+    providerResult = { errorCode: 'Forbidden', errorMessage: '발송은 API Key 에 직접 지정한 IP 에서만 할 수 있습니다. private-detail' }
+    assert.deepEqual(await call({ action: 'alert', token: alertSession.token }), [200, {
+      sms: 'failed', smsDetail: '발송 서버 IP 차단 · SOLAPI Forbidden',
+    }])
+    assert.equal((await call({ action: 'alert', token: alertSession.token }))[0], 409)
   } finally {
     sqlite.close()
     Date.now = previousNow

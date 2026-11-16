@@ -126,6 +126,8 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
     providerResult = { errorCode: 'ServiceUnavailable' }
     const [uncertain, otp] = await start('+82 (10) 1234-0011')
     assert.equal(uncertain, 200)
+    assert.equal(otp.unconfirmed, true)
+    assert.match(otp.notice, /ServiceUnavailable/)
     assert.match(otp.notice, /인증번호가 도착하면 입력/)
     assert.equal(sent.at(-1).to, '01012340011')
     assert.equal((await call({ action: 'verify', token: otp.token, code: codeOf(sent.at(-1)) }))[0], 200)

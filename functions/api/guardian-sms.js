@@ -75,7 +75,7 @@ async function sendSms(env, phone, text) {
     const failed = Array.isArray(data?.failedMessageList) ? data.failedMessageList[0] : undefined
     const message = Array.isArray(data?.messageList) ? data.messageList[0] : undefined
     const code = String(failed?.statusCode ?? data?.errorCode ?? data?.statusCode ?? message?.statusCode ?? `HTTP-${response.status}`)
-    const detail = /^[A-Za-z0-9_-]{3,45}$/.test(code) ? code : `HTTP-${response.status}`
+    const detail = /^(?:\d{4}|[A-Za-z][A-Za-z0-9_-]{2,44})$/.test(code) ? code : `HTTP-${response.status}`
     if (destination.token && ['CareWaveRelayUnauthorized', 'CareWaveRelayNotFound', 'CareWaveRelayInvalidRequest'].includes(code)) {
       return { status: 'relay', detail: code }
     }
@@ -92,14 +92,17 @@ async function sendSms(env, phone, text) {
     if (response.status >= 500) return { status: 'unknown', detail }
 
     const counts = data?.groupInfo?.count
-    if (response.ok && !failed && (['2000', '3000', '4000'].includes(String(message?.statusCode))
+    if (response.ok && !failed && !data?.errorCode && (['2000', '3000', '4000'].includes(String(message?.statusCode))
       || (!message && counts?.registeredSuccess === 1 && counts?.registeredFailed === 0))) {
       return { status: 'accepted' }
     }
-    return { status: response.ok && !failed && !message && !data?.errorCode ? 'unknown' : 'failed', detail }
-  } catch {
+    if (response.ok && !failed && !message && !data?.errorCode) {
+      return { status: 'unknown', detail: 'UnexpectedResponse' }
+    }
+    return { status: 'failed', detail }
+  } catch (error) {
     // The provider may have received a request whose response was lost.
-    return { status: 'unknown' }
+    return { status: 'unknown', detail: error?.name === 'TimeoutError' ? 'RequestTimeout' : 'ConnectionError' }
   }
 }
 
@@ -147,7 +150,11 @@ async function start(env, body, request, now) {
   const { status: sms, detail } = await sendSms(env, phone, `[CareWave] 인증번호 ${code} (5분간 유효)`)
   if (sms === 'unknown') {
     // A timeout can occur after SOLAPI receives the request. Keep any delivered code usable.
-    return reply({ token, notice: '문자 접수 상태를 확인하지 못했습니다. 인증번호가 도착하면 입력하고, 도착하지 않으면 잠시 후 다시 요청해 주세요.' })
+    return reply({
+      token,
+      notice: `문자 접수를 확인하지 못했습니다 (${detail}). 인증번호가 도착하면 입력하고, 도착하지 않으면 잠시 후 ‘인증 문자 다시 받기’를 눌러 주세요.`,
+      unconfirmed: true,
+    })
   }
   if (sms !== 'accepted') {
     await db.prepare(`DELETE FROM sms_session WHERE id = ?`).bind(id).run()

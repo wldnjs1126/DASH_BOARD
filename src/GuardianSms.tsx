@@ -4,7 +4,7 @@ import { ViewDialog } from './visuals.tsx'
 
 export type SmsKind = 'caution' | 'danger'
 export type SmsResult = 'accepted' | 'failed' | 'unknown'
-type SmsResponse = { token?: string; kind?: SmsKind; delay?: number; sms?: SmsResult; smsDetail?: string; notice?: string; error?: string }
+type SmsResponse = { token?: string; kind?: SmsKind; delay?: number; sms?: SmsResult; smsDetail?: string; notice?: string; unconfirmed?: boolean; error?: string }
 
 export async function guardianSms(body: object): Promise<SmsResponse> {
   const response = await fetch('/api/guardian-sms', {
@@ -30,6 +30,7 @@ export function GuardianSmsDialog({ phone, room, arm, close }: {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [unconfirmed, setUnconfirmed] = useState(false)
   const cancelled = useRef(false)
   const pendingToken = useRef('')
   const accessCode = useRef('')
@@ -56,7 +57,8 @@ export function GuardianSmsDialog({ phone, room, arm, close }: {
     accessCode.current = pass
     setToken(result.token)
     setValue('')
-    setNotice(result.notice ?? '문자로 받은 6자리 인증번호를 입력해 주세요.')
+    setNotice(result.notice ?? '문자 요청이 접수되었습니다. 받은 6자리 인증번호를 입력해 주세요.')
+    setUnconfirmed(result.unconfirmed === true)
   }
 
   async function run(task: () => Promise<void>) {
@@ -92,7 +94,7 @@ export function GuardianSmsDialog({ phone, room, arm, close }: {
           key={token ? 'otp' : 'demo'} type={token ? 'text' : 'password'} inputMode={token ? 'numeric' : undefined}
           pattern={token ? '[0-9]{6}' : undefined} maxLength={token ? 6 : 128} autoComplete={token ? 'one-time-code' : 'off'} />
       </label></div>
-      {notice && <p role="status">{notice}</p>}
+      {notice && <p className={unconfirmed ? 'room-form-error' : undefined} role="status">{notice}</p>}
       {error && <p className="room-form-error" role="alert">{error}</p>}
       <div className="subject-actions"><button type="button" className="subject-button" onClick={close}>닫기</button>
         {token && <button type="button" className="subject-button" disabled={busy} onClick={() => { void run(() => requestCode(accessCode.current)) }}>인증 문자 다시 받기</button>}

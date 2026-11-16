@@ -44,9 +44,27 @@ pnpm preview
    [SOLAPI 권한 가이드](https://solapi.com/developers/api/authority?q=tb)에 따라 키에 SMS 발송 권한(`message:send-sms`)을 부여하고, 실제 발송 서버의 고정 공인 출발지 IP를 허용 목록에 직접 등록합니다. Cloudflare Pages 기본 배포만으로는 이 고정 IP가 보장되지 않습니다. 고정 IP를 사용하는 발송 환경을 별도로 마련해야 할 수 있습니다.
 2. Cloudflare에서 D1 데이터베이스를 만들고 `carewave-demo` → Settings → Bindings에서 D1 바인딩 `CAREWAVE_SMS_DB`를 추가합니다. 첫 인증 요청에서 필요한 테이블을 만듭니다.
 3. Settings → Variables and secrets에서 **Secret** 유형으로 `SOLAPI_API_KEY`, `SOLAPI_API_SECRET`, `SOLAPI_SENDER`(숫자만), `CAREWAVE_SMS_DEMO_CODE`(12자 이상 무작위 코드)를 추가합니다. 운영 환경에 적용하고 배포합니다. 체험 코드는 심사위원에게만 전달합니다.
-4. 호실 상세에서 보호자 번호를 저장한 뒤 체험 코드를 입력하고 수신한 인증번호를 확인합니다. 8~18초 뒤 해당 호실의 첫 주의·위험 팝업과 함께 알림 문자 한 통을 요청합니다. 대시보드를 벗어나거나 탭이 숨겨지면 예약된 체험을 취소합니다. 통신사에 이미 접수된 문자는 이후에도 도착할 수 있습니다.
+4. 호실 상세 또는 대상자 관리에서 보호자 번호를 저장한 뒤 체험 코드를 입력하고 수신한 인증번호를 확인합니다. 8~18초 뒤 해당 호실의 첫 주의·위험 팝업과 함께 알림 문자 한 통을 요청합니다. 대시보드를 벗어나거나 탭이 숨겨지면 예약된 체험을 취소합니다. 통신사에 이미 접수된 문자는 이후에도 도착할 수 있습니다.
 
 Pages Function은 인증 문자와 알림 문자를 구분하고, 한 세션에서 알림 문자 한 통만 요청합니다. 설정이 누락된 상태에서는 일반 시뮬레이션을 이용할 수 있습니다. 보호자 이름은 문자 서버로 보내지 않습니다.
+
+### 고정 IP로 문자 보내기
+
+1. 인터넷으로 나갈 때의 공인 IPv4가 고정된 서버를 준비합니다. 예를 들어 네이버 클라우드 VPC에서는 **Compute → Server → Public IP**에서 [공인 IP를 서버에 할당](https://guide.ncloud-docs.com/docs/server-publicip-vpc)합니다. NAT를 사용하는 환경이라면 서버의 주소가 아니라 NAT가 외부 요청에 사용하는 고정 IP를 확인합니다. 서버에서 `curl -4fsS https://www.cloudflare.com/cdn-cgi/trace | sed -n 's/^ip=//p'`로 관측되는 IPv4를 확인할 수 있습니다.
+2. SOLAPI **API Key 관리**에서 현재 사용하는 키의 허용 IP에 이 IPv4를 등록하고 SMS 발송 권한을 확인합니다. 키를 교체해야 하면 Cloudflare의 `SOLAPI_API_KEY`와 `SOLAPI_API_SECRET`도 새 키 쌍으로 갱신합니다. [SOLAPI API Key 관리](https://console.solapi.com/credentials)
+3. 서버에서 `openssl rand -hex 32`로 중계 토큰을 생성합니다. 웹 루트 밖의 환경 파일에 `CAREWAVE_SMS_RELAY_TOKEN=<생성한 토큰>`을 저장하고 파일 권한을 600으로 제한합니다. Node.js 22 이상으로 `node --env-file=/경로/carewave-sms-relay.env /경로/scripts/sms-relay.mjs`를 실행합니다. 운영에서는 systemd 같은 서비스 관리자로 실행해 서버 재부팅 후에도 자동 시작하도록 설정합니다.
+4. 소유한 도메인의 `sms` 서브도메인에 서버를 가리키는 DNS A 레코드를 만들고, [Caddy 설정](https://caddyserver.com/docs/quick-starts/reverse-proxy)에 다음 항목을 추가합니다. 예시 호스트를 실제 서브도메인으로 바꿉니다. 인터넷에서 HTTPS에 접속할 수 있도록 서버의 443 포트를 열고, Caddy가 기본 HTTP 인증을 사용해 인증서를 발급한다면 80도 허용합니다. Node 서버는 내부 포트 8788에서만 받습니다. `https://<실제 서브도메인>/health`가 `{"ok":true}`를 반환하면 HTTPS 연결이 준비된 것입니다.
+
+   ```caddyfile
+   sms.example.com {
+     reverse_proxy 127.0.0.1:8788
+   }
+   ```
+
+5. Cloudflare Pages **carewave-demo → Settings → Variables and secrets → Production**에 `CAREWAVE_SMS_RELAY_URL`을 `https://<실제 서브도메인>/sms`로 설정하고, 서버와 같은 `CAREWAVE_SMS_RELAY_TOKEN`을 **Secret**으로 저장한 뒤 재배포합니다. SOLAPI 키와 시크릿은 Pages에 저장합니다. 중계 URL과 토큰은 함께 설정해야 합니다.
+6. 동의한 휴대전화 한 대로 인증 문자를 받고, 해당 호실의 첫 알림 문자가 한 번만 도착하는지 확인합니다. SOLAPI **메시지 로그 → 건별 내역**에서 인증과 알림 두 건의 처리 결과를 확인합니다. 팝업의 ‘발송 접수’는 SOLAPI에 요청이 등록됐다는 뜻입니다. 통신사 처리 결과는 [SOLAPI 건별 내역](https://console.solapi.com/message-log/detail)에서 확인합니다.
+
+중계 서버 설정 오류(`RelayConfig` 또는 `CareWaveRelayUnauthorized`)는 Cloudflare 주소 및 토큰을 확인합니다. `Forbidden`과 함께 IP 차단이 표시되면 실제 출발지 IPv4가 SOLAPI 허용 목록과 일치하는지 확인합니다. SOLAPI에 문자 기록이 있으면 [메시지 상태 코드](https://solapi.com/developers/api/msgstatus)에 따라 조치합니다. 예를 들어 `1062`는 발신번호 미등록, `2230`은 잔액 부족, `3054`는 스팸 분류입니다.
 
 ## 시나리오 데이터 수정
 

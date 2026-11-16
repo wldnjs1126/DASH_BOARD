@@ -1,6 +1,19 @@
 const encoder = new TextEncoder()
 const MINUTE = 60_000
 const kinds = { danger: '낙상 의심', caution: '장시간 미움직임' }
+const SOLAPI_SEND_URL = 'https://api.solapi.com/messages/v4/send-many/detail'
+
+function smsDestination(env) {
+  if (!env.CAREWAVE_SMS_RELAY_URL && !env.CAREWAVE_SMS_RELAY_TOKEN) return { url: SOLAPI_SEND_URL }
+  try {
+    const url = new URL(env.CAREWAVE_SMS_RELAY_URL)
+    if (url.protocol === 'https:' && url.pathname === '/sms' && !url.search && !url.hash
+      && !url.username && !url.password && /^[a-f0-9]{64}$/i.test(env.CAREWAVE_SMS_RELAY_TOKEN ?? '')) {
+      return { url: url.href, token: env.CAREWAVE_SMS_RELAY_TOKEN }
+    }
+  } catch { /* The relay was partly configured or the URL was invalid. */ }
+  return null
+}
 
 const schema = [
   `CREATE TABLE IF NOT EXISTS sms_session (
@@ -43,21 +56,29 @@ async function decryptPhone(secret, stored) {
 }
 
 async function sendSms(env, phone, text) {
+  const destination = smsDestination(env)
+  if (!destination) return { status: 'relay', detail: 'RelayConfig' }
   const date = new Date().toISOString()
   const salt = crypto.randomUUID().replaceAll('-', '')
   const signature = await sign(env.SOLAPI_API_SECRET, date + salt)
   try {
-    const response = await fetch('https://api.solapi.com/messages/v4/send-many/detail', {
+    const headers = { Authorization: `HMAC-SHA256 apiKey=${env.SOLAPI_API_KEY}, date=${date}, salt=${salt}, signature=${signature}`, 'Content-Type': 'application/json' }
+    if (destination.token) headers['X-CareWave-Relay-Token'] = destination.token
+    const response = await fetch(destination.url, {
       method: 'POST',
-      headers: { Authorization: `HMAC-SHA256 apiKey=${env.SOLAPI_API_KEY}, date=${date}, salt=${salt}, signature=${signature}`, 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ showMessageList: true, messages: [{ to: phone, from: env.SOLAPI_SENDER, text, type: 'SMS' }] }),
-      signal: AbortSignal.timeout(8000),
+      redirect: 'error',
+      signal: AbortSignal.timeout(destination.token ? 10_000 : 8000),
     })
     const data = await response.json().catch(() => null)
     const failed = Array.isArray(data?.failedMessageList) ? data.failedMessageList[0] : undefined
     const message = Array.isArray(data?.messageList) ? data.messageList[0] : undefined
     const code = String(failed?.statusCode ?? data?.errorCode ?? data?.statusCode ?? message?.statusCode ?? `HTTP-${response.status}`)
     const detail = /^[A-Za-z0-9_-]{3,45}$/.test(code) ? code : `HTTP-${response.status}`
+    if (destination.token && ['CareWaveRelayUnauthorized', 'CareWaveRelayNotFound', 'CareWaveRelayInvalidRequest'].includes(code)) {
+      return { status: 'relay', detail: code }
+    }
     if (response.status === 401 || response.status === 403) {
       // Use provider text for classification only; never return it to the browser.
       const reason = typeof data?.errorMessage === 'string' ? data.errorMessage : ''
@@ -138,6 +159,7 @@ async function start(env, body, request, now) {
       forbidden: 'SOLAPI가 문자 발송을 허용하지 않았습니다. API 키의 SMS 발송 권한과 발송 서버의 허용 IP 설정을 확인해 주세요.',
       sender: 'SOLAPI에 등록된 발신번호가 아닙니다. 발신번호 등록 상태를 확인해 주세요.',
       balance: 'SOLAPI 잔액이 부족하거나 잔액 차감에 실패했습니다. 콘솔에서 잔액을 확인해 주세요.',
+      relay: '문자 중계 서버 설정을 확인해 주세요. Cloudflare의 중계 주소와 토큰이 서버 설정과 일치해야 합니다.',
       failed: 'SOLAPI가 인증 문자 요청을 거절했습니다. 발송 내역에서 오류 코드를 확인해 주세요.',
     }
     return reply({ error: `${errors[sms]}${detail ? ` (SOLAPI ${detail})` : ''}` }, 502)
@@ -189,7 +211,10 @@ export async function onRequestPost({ request, env }) {
       const phone = await decryptPhone(env.SOLAPI_API_SECRET, claimed.phone)
       const { status, detail } = await sendSms(env, phone, `[CareWave 체험] ${claimed.room} ${kinds[claimed.kind]} 알림입니다.`)
       if (status === 'accepted' || status === 'unknown') return reply({ sms: status })
-      const reasons = { sourceIp: '발송 서버 IP 차단', permission: 'SMS 발송 권한 없음', credentials: 'API 키 인증 실패', forbidden: 'SOLAPI 요청 거절', sender: '발신번호 등록 오류', balance: 'SOLAPI 잔액 오류' }
+      const reasons = {
+        sourceIp: '발송 서버 IP 차단', permission: 'SMS 발송 권한 없음', credentials: 'API 키 인증 실패',
+        forbidden: 'SOLAPI 요청 거절', sender: '발신번호 등록 오류', balance: 'SOLAPI 잔액 오류', relay: '문자 중계 서버 설정 오류',
+      }
       const reason = reasons[status]
       return reply({ sms: 'failed', smsDetail: [reason, detail && `SOLAPI ${detail}`].filter(Boolean).join(' · ') })
     }

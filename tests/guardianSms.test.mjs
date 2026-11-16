@@ -20,12 +20,17 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
   const sent = []
   let providerResult
   let providerStatus = 200
+  const relayUrl = 'https://sms.carewave.test/sms'
+  const relayToken = 'a'.repeat(64)
+  let expectedUrl = 'https://api.solapi.com/messages/v4/send-many/detail'
   const previousFetch = globalThis.fetch
   const previousNow = Date.now
   let now = 1_800_000_000_000
   Date.now = () => now
   globalThis.fetch = async (url, init) => {
-    assert.equal(url, 'https://api.solapi.com/messages/v4/send-many/detail')
+    assert.equal(url, expectedUrl)
+    assert.equal(init.redirect, 'error')
+    assert.equal(init.headers['X-CareWave-Relay-Token'], url === relayUrl ? relayToken : undefined)
     const body = JSON.parse(init.body)
     assert.equal(body.showMessageList, true)
     assert.equal(body.messages[0].type, 'SMS')
@@ -124,6 +129,25 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
     assert.match(otp.notice, /인증번호가 도착하면 입력/)
     assert.equal(sent.at(-1).to, '01012340011')
     assert.equal((await call({ action: 'verify', token: otp.token, code: codeOf(sent.at(-1)) }))[0], 200)
+
+    now += 10 * 60_000
+    const relayRequest = { action: 'start', phone: '01012340012', pass: env.CAREWAVE_SMS_DEMO_CODE, room: '103호' }
+    const beforeRelay = sent.length
+    const [invalidRelay, badConfig] = await call(relayRequest, origin, { ...env, CAREWAVE_SMS_RELAY_URL: relayUrl })
+    assert.equal(invalidRelay, 502)
+    assert.match(badConfig.error, /RelayConfig/)
+    assert.equal(sent.length, beforeRelay)
+    expectedUrl = relayUrl
+    const relayEnv = { ...env, CAREWAVE_SMS_RELAY_URL: relayUrl, CAREWAVE_SMS_RELAY_TOKEN: relayToken }
+    providerStatus = 200
+    providerResult = undefined
+    const [relayStart, { token: relaySession }] = await call(relayRequest, origin, relayEnv)
+    assert.equal(relayStart, 200)
+    const [relayVerified, relayTiming] = await call({ action: 'verify', token: relaySession, code: codeOf(sent.at(-1)) }, origin, relayEnv)
+    assert.equal(relayVerified, 200)
+    now += relayTiming.delay
+    assert.deepEqual(await call({ action: 'alert', token: relaySession }, origin, relayEnv), [200, { sms: 'accepted' }])
+    assert.equal(sent.length, beforeRelay + 2)
   } finally {
     sqlite.close()
     Date.now = previousNow

@@ -165,6 +165,7 @@
 }
 .landing-steps li { position: relative; padding: 14px 13px 15px; border-top: 2px solid #bcdde3; background: #f1f7fa; border-radius: 0 0 9px 9px; }
 .landing-step-icon { width: 34px; height: 34px; }
+.landing-step-sensor { display: block; width: min(100%, 140px); height: auto; margin-top: 8px; }
 .landing-step-arrow { position: absolute; top: 21px; right: -20px; color: #56809c; }
 .landing-detail-section { padding-block: clamp(32px, 4.4vw, 56px); }
 .landing-event-list {
@@ -298,6 +299,7 @@
   }
   .landing-step-icon { grid-row: span 2; }
   .landing-steps h4 { margin: 0 0 3px; }
+  .landing-step-sensor { grid-column: 2; width: min(100%, 120px); }
   .landing-step-arrow { display: none; }
   .landing-event-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .landing-monitor-grid { grid-template-columns: 1fr; }

@@ -6,6 +6,7 @@ import {
   Radar, ShieldCheck, TriangleAlert, UserRound, VideoOff,
 } from 'lucide-react'
 import { Brand } from './Brand.tsx'
+import sensorPhoto from './mmwave-sensor.png'
 import { Room3D } from './Room3D.tsx'
 import { frameAt, historyAt, ROOM, SCENARIO_BY_ID, ZONE } from './scenarios.ts'
 import { FloorPlan } from './visuals.tsx'
@@ -241,6 +242,7 @@ export function Landing({ dashboardPreview, signedIn }: { dashboardPreview: Reac
           <ol className="landing-steps">
             {stages.map(({ icon: Icon, title, text }, index) =>
               <li key={title}><span className="landing-step-icon"><Icon aria-hidden="true" /></span><h4>{title}</h4><p>{text}</p>
+                {index === 0 && <img className="landing-step-sensor" src={sensorPhoto} alt="mmWave 레이더 센서 보드" width={543} height={181} loading="lazy" decoding="async" />}
                 {index < stages.length - 1 && <ChevronRight className="landing-step-arrow" size={18} aria-hidden="true" />}
               </li>,
             )}

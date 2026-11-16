@@ -18,6 +18,7 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
     SOLAPI_API_KEY: 'mock-key', SOLAPI_API_SECRET: 'mock-secret', SOLAPI_SENDER: '0212345678',
   }
   const sent = []
+  let rejectSender = false
   const previousFetch = globalThis.fetch
   const previousNow = Date.now
   let now = 1_800_000_000_000
@@ -27,6 +28,7 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
     const body = JSON.parse(init.body)
     assert.equal(body.showMessageList, true)
     sent.push(body.messages[0])
+    if (rejectSender) return Response.json({ failedMessageList: [{ statusCode: '3040' }] })
     return Response.json({ messageList: [{ statusCode: '2000' }] })
   }
   const origin = 'https://carewave.test'
@@ -46,7 +48,9 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
     assert.equal(sent.length, 0)
     const [started, { token }] = await start('01012340000')
     assert.equal(started, 200)
-    assert.equal((await start('01012340000'))[0], 429)
+    const [limited, retry] = await start('01012340000')
+    assert.equal(limited, 429)
+    assert.match(retry.error, /약 \d+(초|분)/)
     assert.equal((await call({ action: 'alert', token }))[0], 409)
     assert.equal((await call({ action: 'verify', token, code: '11111' }))[0], 400)
     const [verified, { delay, kind }] = await call({ action: 'verify', token, code: codeOf(sent[0]) })
@@ -69,6 +73,13 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
       assert.equal((await call({ action: 'alert', token: next.token }))[0], 409)
     }
     assert.equal(sent.length, 4)
+
+    rejectSender = true
+    const [failed, senderError] = await start('01012340003')
+    assert.equal(failed, 502)
+    assert.match(senderError.error, /발신번호/)
+    rejectSender = false
+    assert.equal((await start('01012340003'))[0], 200)
   } finally {
     sqlite.close()
     Date.now = previousNow

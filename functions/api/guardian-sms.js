@@ -53,9 +53,11 @@ async function sendSms(env, phone, text) {
       body: JSON.stringify({ showMessageList: true, messages: [{ to: phone, from: env.SOLAPI_SENDER, text }] }),
       signal: AbortSignal.timeout(8000),
     })
-    if (!response.ok) return 'failed'
-    const data = await response.json()
-    return !data.failedMessageList?.length && data.messageList?.some(message => message.statusCode === '2000') ? 'accepted' : 'failed'
+    const data = await response.json().catch(() => null)
+    if (response.status === 401 || response.status === 403) return 'credentials'
+    if (data?.failedMessageList?.some(message => message.statusCode === '3040')) return 'sender'
+    if (response.status >= 500) return 'unknown'
+    return response.ok && !data?.failedMessageList?.length && data?.messageList?.some(message => message.statusCode === '2000') ? 'accepted' : 'failed'
   } catch {
     // The provider may have received a request whose response was lost.
     return 'unknown'
@@ -64,9 +66,17 @@ async function sendSms(env, phone, text) {
 
 async function quota(db, key, now, limit, windowSize) {
   const expires = (Math.floor(now / windowSize) + 1) * windowSize
-  return db.prepare(`INSERT INTO sms_limit VALUES (?, 1, ?)
+  const bucket = `${key}:${expires}`
+  const allowed = await db.prepare(`INSERT INTO sms_limit VALUES (?, 1, ?)
     ON CONFLICT(bucket) DO UPDATE SET count = sms_limit.count + 1
-    WHERE sms_limit.count < ? RETURNING count`).bind(`${key}:${expires}`, expires, limit).first()
+    WHERE sms_limit.count < ? RETURNING count`).bind(bucket, expires, limit).first()
+  return { allowed: Boolean(allowed), bucket, expires }
+}
+
+function retryMessage(expires, now) {
+  const seconds = Math.max(1, Math.ceil((expires - now) / 1000))
+  const remaining = seconds < 60 ? `약 ${seconds}초` : `약 ${Math.ceil(seconds / 60)}분`
+  return reply({ error: `인증 문자 요청 한도에 도달했습니다. ${remaining} 후 다시 시도해 주세요.` }, 429)
 }
 
 async function start(env, body, request, now) {
@@ -82,10 +92,12 @@ async function start(env, body, request, now) {
   await db.batch(['sms_session', 'sms_limit'].map(table => db.prepare(`DELETE FROM ${table} WHERE expires <= ?`).bind(now)))
   const ip = await sign(env.SOLAPI_API_SECRET, `ip:${request.headers.get('CF-Connecting-IP') ?? 'local'}`)
   const phoneKey = await sign(env.SOLAPI_API_SECRET, `phone:${phone}`)
-  if (!await quota(db, `phone:${phoneKey}`, now, 1, 10 * MINUTE)
-    || !await quota(db, `ip:${ip}`, now, 12, 10 * MINUTE)
-    || !await quota(db, 'total', now, 50, 60 * MINUTE)) {
-    return reply({ error: '인증 문자 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.' }, 429)
+  const cooldown = await quota(db, `cooldown:${phoneKey}`, now, 1, MINUTE)
+  if (!cooldown.allowed) return retryMessage(cooldown.expires, now)
+  const limits = [[`phone:${phoneKey}`, 3, 10 * MINUTE], [`ip:${ip}`, 12, 10 * MINUTE], ['total', 50, 60 * MINUTE]]
+  for (const [key, maximum, windowSize] of limits) {
+    const result = await quota(db, key, now, maximum, windowSize)
+    if (!result.allowed) return retryMessage(result.expires, now)
   }
   const token = crypto.randomUUID()
   const id = await sign(env.SOLAPI_API_SECRET, token)
@@ -93,9 +105,17 @@ async function start(env, body, request, now) {
   const digest = await sign(env.SOLAPI_API_SECRET, `${id}:${code}`)
   await db.prepare(`INSERT INTO sms_session (id, phone, code, room, state, expires) VALUES (?, ?, ?, ?, 'otp', ?)`)
     .bind(id, await encryptPhone(env.SOLAPI_API_SECRET, phone), digest, room, now + 5 * MINUTE).run()
-  if (await sendSms(env, phone, `[CareWave] 인증번호 ${code} (5분간 유효)`) !== 'accepted') {
+  const sms = await sendSms(env, phone, `[CareWave] 인증번호 ${code} (5분간 유효)`)
+  if (sms !== 'accepted') {
     await db.prepare(`DELETE FROM sms_session WHERE id = ?`).bind(id).run()
-    return reply({ error: '인증 문자 접수를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 502)
+    if (sms !== 'unknown') await db.prepare('DELETE FROM sms_limit WHERE bucket = ?').bind(cooldown.bucket).run()
+    const errors = {
+      credentials: '문자 서비스 인증이 실패했습니다. Cloudflare에 등록한 SOLAPI API 키와 시크릿을 확인해 주세요.',
+      sender: 'SOLAPI에 등록된 발신번호가 아닙니다. 발신번호 등록 상태를 확인해 주세요.',
+      failed: 'SOLAPI가 인증 문자 요청을 거절했습니다. SOLAPI 발송 내역과 잔액을 확인해 주세요.',
+      unknown: '인증 문자 접수를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+    }
+    return reply({ error: errors[sms] }, 502)
   }
   return reply({ token })
 }
@@ -140,7 +160,7 @@ export async function onRequestPost({ request, env }) {
       if (!claimed?.phone) return reply({ error: '문자 체험이 종료되었거나 이미 처리되었습니다.' }, 409)
       const phone = await decryptPhone(env.SOLAPI_API_SECRET, claimed.phone)
       const sms = await sendSms(env, phone, `[CareWave 체험] ${claimed.room} ${kinds[claimed.kind]} 알림입니다.`)
-      return reply({ sms })
+      return reply({ sms: sms === 'sender' || sms === 'credentials' ? 'failed' : sms })
     }
     return reply({ error: '잘못된 요청입니다.' }, 400)
   } catch {

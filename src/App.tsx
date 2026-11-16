@@ -13,6 +13,8 @@ import type { ExperimentRecording } from './experiment.ts'
 import { useLiveExperiment } from './liveExperiment.ts'
 import { AlertHistory, InstitutionAlert, InstitutionClock, InstitutionOverview, InstitutionSettings, RoomDetailHeader, RoomDetails } from './Institution.tsx'
 import { InstitutionLogin } from './InstitutionLogin.tsx'
+import { GuardianSmsDialog, guardianSms, stopGuardianSms } from './GuardianSms.tsx'
+import type { SmsKind } from './GuardianSms.tsx'
 import { readFacilityRooms, roomSubject, updateRoom, writeFacilityRooms } from './facilityRooms.ts'
 import { roomHref, roomLabel } from './institutionData.ts'
 import type { CareEvent, RoomRecord } from './institutionData.ts'
@@ -250,6 +252,10 @@ function readRoute() {
   return window.location.hash.slice(1)
 }
 
+function isDashboardRoute(route: string) {
+  return ['demo', 'daily-report', 'subjects', 'alerts', 'settings'].includes(route) || route.startsWith('room/')
+}
+
 function readSession() {
   try { return sessionStorage.getItem(SESSION_KEY) === 'active' } catch { return false }
 }
@@ -271,6 +277,9 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
   const [sidebarExpanded, setSidebarExpanded] = useState(() => window.matchMedia('(min-width: 721px)').matches)
   const [confirmedIds, setConfirmedIds] = useState(() => readAlertIds('carewave.institution.confirmed'))
   const [activeAlert, setActiveAlert] = useState<CareEvent | null>(null)
+  const [smsRoom, setSmsRoom] = useState<RoomRecord | null>(null)
+  const [smsArmed, setSmsArmed] = useState(false)
+  const smsSession = useRef<{ token: string; timer: number } | null>(null)
   const [routeType, roomId, roomView] = route.split('/')
   const room = route === 'daily-report' ? rooms.find(entry => entry.name) : routeType === 'room' ? rooms.find(entry => entry.id === roomId) : undefined
   const recording = experiment?.find(entry => entry.id === room?.id)
@@ -279,7 +288,7 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
   const showLogin = route === 'login' || route === 'demo-entry' || Boolean(page && !signedIn)
   const screen = showLogin ? 'login' : page ?? 'landing'
   const liveEnabled = Boolean(experiment && signedIn && page && !showLogin)
-  const { events: liveEvents, statuses, reset: resetLiveEvents } = useLiveExperiment(liveEnabled, rooms)
+  const { events: liveEvents, statuses, reset: resetLiveEvents, addEvent, updateSms } = useLiveExperiment(liveEnabled, rooms, Boolean(smsRoom) || smsArmed)
   const displayedRooms = liveEnabled ? rooms.map(entry => ({ ...entry, ...statuses.get(entry.id), occupied: true })) : rooms
   const displayedRoom = displayedRooms.find(entry => entry.id === room?.id)
   const lastShownEvent = useRef<string | null>(null)
@@ -297,15 +306,32 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
       lastShownEvent.current = latestLiveEvent.id
       return
     }
-    if (editor || deleting || activeAlert) return
+    if (editor || deleting || activeAlert || smsRoom || smsArmed) return
     lastShownEvent.current = latestLiveEvent.id
     setActiveAlert(latestLiveEvent)
-  }, [liveEnabled, latestLiveEvent, screen, editor, deleting, activeAlert])
+  }, [liveEnabled, latestLiveEvent, screen, editor, deleting, activeAlert, smsRoom, smsArmed])
 
   useEffect(() => {
-    const syncRoute = () => setRoute(readRoute())
+    function stopOnLeave() {
+      stopSms()
+      setSmsRoom(null)
+    }
+    function syncRoute() {
+      const next = readRoute()
+      if (!isDashboardRoute(next)) stopOnLeave()
+      setRoute(next)
+    }
+    function stopWhenHidden() {
+      if (document.hidden) stopOnLeave()
+    }
     window.addEventListener('hashchange', syncRoute)
-    return () => window.removeEventListener('hashchange', syncRoute)
+    window.addEventListener('pagehide', stopOnLeave)
+    document.addEventListener('visibilitychange', stopWhenHidden)
+    return () => {
+      window.removeEventListener('hashchange', syncRoute)
+      window.removeEventListener('pagehide', stopOnLeave)
+      document.removeEventListener('visibilitychange', stopWhenHidden)
+    }
   }, [])
 
   useEffect(() => {
@@ -336,10 +362,47 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
   }
 
   function signOut() {
+    stopSms()
+    setSmsRoom(null)
     resetLiveEvents()
     setSession(false)
     setActiveAlert(null)
     window.location.hash = 'login'
+  }
+
+  function stopSms() {
+    const session = smsSession.current
+    if (!session) return
+    smsSession.current = null
+    window.clearTimeout(session.timer)
+    setSmsArmed(false)
+    stopGuardianSms(session.token)
+  }
+
+  function armSms(token: string, kind: SmsKind, delay: number) {
+    const target = smsRoom
+    setSmsRoom(null)
+    if (!target || document.hidden || !isDashboardRoute(readRoute())) return stopGuardianSms(token)
+    stopSms()
+    setSmsArmed(true)
+    const timer = window.setTimeout(() => {
+      if (smsSession.current?.token !== token) return
+      if (document.hidden || !isDashboardRoute(readRoute())) return stopSms()
+      smsSession.current = null
+      setSmsArmed(false)
+      const event = addEvent(target.id, kind === 'danger')
+      lastShownEvent.current = event.id
+      setActiveAlert({ ...event, sms: 'sending' })
+      updateSms(event.id, 'sending')
+      function updateStatus(sms: CareEvent['sms']) {
+        updateSms(event.id, sms)
+        setActiveAlert(current => current?.id === event.id ? { ...current, sms } : current)
+      }
+      void guardianSms({ action: 'alert', token }).then(result => {
+        updateStatus(result.sms === 'unknown' ? 'unverified' : result.sms ?? 'unverified')
+      }, () => updateStatus('unverified'))
+    }, delay)
+    smsSession.current = { token, timer }
   }
 
   function confirmAlert(event: CareEvent) {
@@ -368,10 +431,15 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
     const next = updateRoom(details, existing)
     saveRooms(existing ? rooms.map(entry => entry.id === existing.id ? next : entry) : [...rooms, next])
     setEditor(null)
+    if (existing && next.guardianPhone && screen === 'dashboard' && room?.id === next.id) {
+      stopSms()
+      setSmsRoom(next)
+    }
   }
 
   function removeRoom() {
     if (!deleting) return
+    stopSms()
     saveRooms(rooms.filter(entry => entry.id !== deleting.id))
     if (room?.id === deleting.id) window.location.hash = 'demo'
     setDeleting(null)
@@ -393,6 +461,7 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
     }} />
     <div className="care-content">
       {storageError && <p className="care-storage-error" role="status">브라우저 저장소를 사용할 수 없어 변경 내용이 이 탭에서만 유지됩니다.</p>}
+      {smsArmed && <div className="care-sms-status"><span role="status">인증 완료. 등록한 호실의 첫 알림에만 문자를 보냅니다.</span><button type="button" onClick={stopSms}>문자 체험 중단</button></div>}
       {room && !showReport ? <RoomDetailHeader room={room} recording={recording} subtitle={headerSubtitle} /> : <header className="institution-header">
         <div><p className="institution-header-title">비카메라 센서 기반 시니어 생활패턴 AI 위험감지 서비스</p>
           <p className="institution-header-subtitle">{headerSubtitle}</p>
@@ -411,6 +480,7 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
     </div>
     {activeAlert && alertRoom && <InstitutionAlert key={activeAlert.id} event={activeAlert} room={alertRoom} close={() => setActiveAlert(null)} confirm={() => confirmAlert(activeAlert)} />}
     {editor && <RoomEditor room={editor === 'new' ? undefined : editor} rooms={rooms} close={() => setEditor(null)} save={saveRoom} />}
+    {smsRoom?.guardianPhone && <GuardianSmsDialog key={smsRoom.id} phone={smsRoom.guardianPhone} room={roomLabel(smsRoom)} arm={armSms} close={() => setSmsRoom(null)} />}
     {deleting && <RoomDeleteDialog room={deleting} close={() => setDeleting(null)} remove={removeRoom} />}
   </div>
 }

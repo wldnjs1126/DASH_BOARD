@@ -247,7 +247,7 @@ export function InstitutionAlert({ event, room, close, confirm }: { event: CareE
     element?.showModal()
     return () => element?.close()
   }, [])
-  const sms = event.sms === 'none' || event.sms === 'unknown' ? SMS_LABELS[event.sms] : `보호자 문자 ${SMS_LABELS[event.sms]}`
+  const sms = SMS_LABELS[event.sms]
 
   return <dialog ref={dialog} className={`institution-alarm level-${event.level}`} aria-labelledby={title} onCancel={e => { e.preventDefault(); close() }}>
     <header><div className="institution-alarm-icon"><Bell size={21} /></div><LevelBadge level={event.level} />

@@ -25,7 +25,7 @@ export const ROOMS: readonly RoomRecord[] = [
   { id: '210', name: '한상철', age: 85, gender: '남성', height: 163, weight: 60, level: 'caution', occupied: true, online: true, reason: '평소보다 야간이탈이 잦아 생활 변화를 확인해야 합니다.' },
 ]
 
-export const SMS_LABELS = { sent: '발송 완료', failed: '발송 실패', none: '미발송', unknown: '기록 없음' } as const
+export const SMS_LABELS = { sent: '발송 완료', sending: '요청 중', accepted: '발송 접수', failed: '발송 실패', none: '미발송', unknown: '기록 없음', unverified: '접수 확인 불가' } as const
 export type CareEvent = {
   simulated?: boolean
   id: string; room: string; date: string; time: string; detectedTime?: string; type: string; duration: string

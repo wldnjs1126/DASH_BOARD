@@ -38,6 +38,15 @@ pnpm preview
 
 공유하려면 빌드로 생성된 `dist/`의 내용을 정적 호스팅에 배포하고 호스팅 주소를 전달합니다. 빌드형 호스팅에서는 프로젝트 루트를 `carewave-simulator`, 빌드 명령을 `pnpm build`, 출력 디렉터리를 `dist`로 설정합니다. 상대 경로 자산을 사용하므로 하위 경로에도 올릴 수 있습니다. 압축해 전달할 경우 받는 쪽에서 정적 HTTP 서버를 통해 `index.html`을 엽니다. [Vite 정적 배포 안내](https://vite.dev/guide/static-deploy.html)
 
+## 보호자 문자 체험 설정 (Cloudflare Pages)
+
+1. SOLAPI에서 발신번호를 인증하고 API Key와 API Secret을 발급합니다. 문자 발송에 사용할 잔액을 준비합니다.
+2. Cloudflare에서 D1 데이터베이스를 만들고 `carewave-demo` → Settings → Bindings에서 D1 바인딩 `CAREWAVE_SMS_DB`를 추가합니다. 첫 인증 요청에서 필요한 테이블을 만듭니다.
+3. Settings → Variables and secrets에서 **Secret** 유형으로 `SOLAPI_API_KEY`, `SOLAPI_API_SECRET`, `SOLAPI_SENDER`(숫자만), `CAREWAVE_SMS_DEMO_CODE`(12자 이상 무작위 코드)를 추가합니다. 운영 환경에 적용하고 배포합니다. 체험 코드는 심사위원에게만 전달합니다.
+4. 호실 상세에서 보호자 번호를 저장한 뒤 체험 코드를 입력하고 수신한 인증번호를 확인합니다. 8~18초 뒤 해당 호실의 첫 주의·위험 팝업과 함께 알림 문자 한 통을 요청합니다. 대시보드를 벗어나거나 탭이 숨겨지면 예약된 체험을 취소합니다. 통신사에 이미 접수된 문자는 이후에도 도착할 수 있습니다.
+
+Pages Function은 인증 문자와 알림 문자를 구분하고, 한 세션에서 알림 문자 한 통만 요청합니다. 설정이 누락된 상태에서는 일반 시뮬레이션을 이용할 수 있습니다. 보호자 이름은 문자 서버로 보내지 않습니다.
+
 ## 시나리오 데이터 수정
 
 `src/scenarios.ts`의 키프레임은 `[초, x, y, z, 이동속도, 움직임강도, 재실여부]` 순서입니다. 거리 단위는 m이며 속도 단위는 m/s입니다. 키프레임에서 `timestamp`, `x`, `y`, `z`, `speed`, `presence`, `zone`, `intensity`, `event_type`을 가진 30 Hz 샘플을 만듭니다. `detectionTime`이 이벤트 시점을 지정합니다.

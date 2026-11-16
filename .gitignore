@@ -3,3 +3,5 @@ dist/
 .pnpm-store/
 test-results/
 experiment.local.json
+.dev.vars*
+.env*

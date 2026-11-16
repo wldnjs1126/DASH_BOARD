@@ -8,6 +8,8 @@
 }
 .care-shell-collapsed { --sidebar-width: var(--sidebar-rail); }
 .care-content { min-width: 0; }
+.care-sms-status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; padding: 8px 16px; background: #e0f4ee; color: #185643; font-size: 13px; }
+.care-sms-status button { color: inherit; background: white; border: 1px solid currentColor; border-radius: 5px; padding: 4px 8px; }
 .care-sidebar {
   position: sticky;
   top: 0;

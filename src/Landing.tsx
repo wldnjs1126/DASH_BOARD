@@ -56,7 +56,7 @@ const careUsers = [
 
 const exampleResidents = [
   { name: '김○○', presence: '재실', event: '정상 활동', risk: riskLevels[0] },
-  { name: '이○○', presence: '재실', event: '야간이탈 1회', risk: riskLevels[1] },
+  { name: '이○○', presence: '재실', event: '야간이탈', risk: riskLevels[2] },
   { name: '박○○', presence: '부재', event: '외출', risk: riskLevels[0] },
   { name: '최○○', presence: '재실', event: '장시간 미움직임', risk: riskLevels[2] },
 ]
@@ -235,14 +235,14 @@ export function Landing({ dashboardPreview, signedIn }: { dashboardPreview: Reac
         </div>
 
         <section id="how-it-works" className="landing-shell landing-workflow" aria-labelledby="workflow-title">
-          <div className="landing-section-heading">
+          <div className="landing-section-heading landing-workflow-heading">
             <h3 className="landing-subsection-title" id="workflow-title">작동 방식</h3>
             <p className="landing-section-subtitle">센서 신호가 돌봄 정보로 바뀌는 과정</p>
+            <img className="landing-workflow-sensor" src={sensorPhoto} alt="mmWave 레이더 센서 보드" width={543} height={181} loading="lazy" decoding="async" />
           </div>
           <ol className="landing-steps">
             {stages.map(({ icon: Icon, title, text }, index) =>
               <li key={title}><span className="landing-step-icon"><Icon aria-hidden="true" /></span><h4>{title}</h4><p>{text}</p>
-                {index === 0 && <img className="landing-step-sensor" src={sensorPhoto} alt="mmWave 레이더 센서 보드" width={543} height={181} loading="lazy" decoding="async" />}
                 {index < stages.length - 1 && <ChevronRight className="landing-step-arrow" size={18} aria-hidden="true" />}
               </li>,
             )}

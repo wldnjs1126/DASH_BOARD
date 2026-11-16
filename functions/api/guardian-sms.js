@@ -50,7 +50,7 @@ async function sendSms(env, phone, text) {
     const response = await fetch('https://api.solapi.com/messages/v4/send-many/detail', {
       method: 'POST',
       headers: { Authorization: `HMAC-SHA256 apiKey=${env.SOLAPI_API_KEY}, date=${date}, salt=${salt}, signature=${signature}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ showMessageList: true, messages: [{ to: phone, from: env.SOLAPI_SENDER, text }] }),
+      body: JSON.stringify({ showMessageList: true, messages: [{ to: phone, from: env.SOLAPI_SENDER, text, type: 'SMS' }] }),
       signal: AbortSignal.timeout(8000),
     })
     const data = await response.json().catch(() => null)
@@ -58,7 +58,14 @@ async function sendSms(env, phone, text) {
     const message = Array.isArray(data?.messageList) ? data.messageList[0] : undefined
     const code = String(failed?.statusCode ?? data?.errorCode ?? data?.statusCode ?? message?.statusCode ?? `HTTP-${response.status}`)
     const detail = /^[A-Za-z0-9_-]{3,45}$/.test(code) ? code : `HTTP-${response.status}`
-    if (response.status === 401 || response.status === 403) return { status: 'credentials', detail }
+    if (response.status === 401 || response.status === 403) {
+      // Use provider text for classification only; never return it to the browser.
+      const reason = typeof data?.errorMessage === 'string' ? data.errorMessage : ''
+      if (/직접\s*지정한\s*IP|허용\s*IP/i.test(reason)) return { status: 'sourceIp', detail }
+      if (/권한이\s*없습니다|message:send-sms/i.test(reason)) return { status: 'permission', detail }
+      if (['InvalidAPIKey', 'SignatureDoesNotMatch'].includes(code)) return { status: 'credentials', detail }
+      return { status: 'forbidden', detail }
+    }
     if (['1062', '2062', '3013'].includes(code) || (code === '3040' && /등록되지 않은 발신번호/.test(failed?.statusMessage ?? ''))) return { status: 'sender', detail }
     if (['1030', '2025', '2230'].includes(code)) return { status: 'balance', detail }
     if (response.status >= 500) return { status: 'unknown', detail }
@@ -122,6 +129,9 @@ async function start(env, body, request, now) {
     if (sms !== 'unknown') await db.prepare('DELETE FROM sms_limit WHERE bucket = ?').bind(cooldown.bucket).run()
     const errors = {
       credentials: '문자 서비스 인증이 실패했습니다. Cloudflare에 등록한 SOLAPI API 키와 시크릿을 확인해 주세요.',
+      sourceIp: 'SOLAPI가 발송 서버의 IP를 차단했습니다. API 키의 허용 IP에 발송 서버의 고정 공인 IP를 등록해야 합니다.',
+      permission: 'SOLAPI API 키에 문자 발송 권한이 없습니다. 키의 SMS 발송 권한(message:send-sms)을 확인해 주세요.',
+      forbidden: 'SOLAPI가 문자 발송을 허용하지 않았습니다. API 키의 SMS 발송 권한과 발송 서버의 허용 IP 설정을 확인해 주세요.',
       sender: 'SOLAPI에 등록된 발신번호가 아닙니다. 발신번호 등록 상태를 확인해 주세요.',
       balance: 'SOLAPI 잔액이 부족하거나 잔액 차감에 실패했습니다. 콘솔에서 잔액을 확인해 주세요.',
       failed: 'SOLAPI가 인증 문자 요청을 거절했습니다. 발송 내역에서 오류 코드를 확인해 주세요.',

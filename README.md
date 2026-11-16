@@ -41,6 +41,7 @@ pnpm preview
 ## 보호자 문자 체험 설정 (Cloudflare Pages)
 
 1. SOLAPI에서 발신번호를 인증하고 API Key와 API Secret을 발급합니다. 문자 발송에 사용할 잔액을 준비합니다.
+   [SOLAPI 권한 가이드](https://solapi.com/developers/api/authority?q=tb)에 따라 키에 SMS 발송 권한(`message:send-sms`)을 부여하고, 실제 발송 서버의 고정 공인 출발지 IP를 허용 목록에 직접 등록합니다. Cloudflare Pages 기본 배포만으로는 이 고정 IP가 보장되지 않습니다. 고정 IP를 사용하는 발송 환경을 별도로 마련해야 할 수 있습니다.
 2. Cloudflare에서 D1 데이터베이스를 만들고 `carewave-demo` → Settings → Bindings에서 D1 바인딩 `CAREWAVE_SMS_DB`를 추가합니다. 첫 인증 요청에서 필요한 테이블을 만듭니다.
 3. Settings → Variables and secrets에서 **Secret** 유형으로 `SOLAPI_API_KEY`, `SOLAPI_API_SECRET`, `SOLAPI_SENDER`(숫자만), `CAREWAVE_SMS_DEMO_CODE`(12자 이상 무작위 코드)를 추가합니다. 운영 환경에 적용하고 배포합니다. 체험 코드는 심사위원에게만 전달합니다.
 4. 호실 상세에서 보호자 번호를 저장한 뒤 체험 코드를 입력하고 수신한 인증번호를 확인합니다. 8~18초 뒤 해당 호실의 첫 주의·위험 팝업과 함께 알림 문자 한 통을 요청합니다. 대시보드를 벗어나거나 탭이 숨겨지면 예약된 체험을 취소합니다. 통신사에 이미 접수된 문자는 이후에도 도착할 수 있습니다.

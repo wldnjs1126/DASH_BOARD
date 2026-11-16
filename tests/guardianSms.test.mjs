@@ -19,6 +19,7 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
   }
   const sent = []
   let providerResult
+  let providerStatus = 200
   const previousFetch = globalThis.fetch
   const previousNow = Date.now
   let now = 1_800_000_000_000
@@ -27,8 +28,9 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
     assert.equal(url, 'https://api.solapi.com/messages/v4/send-many/detail')
     const body = JSON.parse(init.body)
     assert.equal(body.showMessageList, true)
+    assert.equal(body.messages[0].type, 'SMS')
     sent.push(body.messages[0])
-    return Response.json(providerResult ?? { messageList: [{ statusCode: '2000' }] })
+    return Response.json(providerResult ?? { messageList: [{ statusCode: '2000' }] }, { status: providerStatus })
   }
   const origin = 'https://carewave.test'
   const call = async (body, requestOrigin = origin, config = env) => {
@@ -83,6 +85,21 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
     assert.match(balanceError.error, /잔액.*1030/)
     providerResult = { groupInfo: { count: { registeredSuccess: 1, registeredFailed: 0 } } }
     assert.equal((await start('01012340003'))[0], 200)
+
+    providerStatus = 403
+    const rejections = [
+      ['Forbidden', '발송은 API Key 에 직접 지정한 IP 에서만 할 수 있습니다. private-detail', /발송 서버의 IP를 차단/],
+      ['Forbidden', '이 API Key 에는 message:send-sms 권한이 없습니다.', /문자 발송 권한이 없습니다/],
+      ['SignatureDoesNotMatch', 'private-detail', /키와 시크릿을 확인/],
+      ['Forbidden', 'Forbidden', /SMS 발송 권한과 발송 서버의 허용 IP/],
+    ]
+    for (const [index, [errorCode, errorMessage, expected]] of rejections.entries()) {
+      providerResult = { errorCode, errorMessage }
+      const [status, result] = await start(`0101234000${index + 5}`)
+      assert.equal(status, 502)
+      assert.match(result.error, expected)
+      assert.doesNotMatch(result.error, /private-detail/)
+    }
   } finally {
     sqlite.close()
     Date.now = previousNow

@@ -105,7 +105,7 @@ function Metric({ icon, label, children, sub, tone = 'normal' }: {
 function WarningDialog({ detection, subject, close }: { detection: Detection; subject: Subject; close: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const risk = detection.risk
-  const title = risk === 'danger' ? '낙상 발생' : '야간이탈 감지'
+  const title = risk === 'danger' ? '낙상 발생' : `${detection.label} 감지`
   useEffect(() => {
     const element = dialog.current
     element?.showModal()
@@ -136,7 +136,7 @@ function TechnologyDemo() {
   const history = historyAt(scenario, time)
   const detection = detectionAt(scenario, time, startedAt)
   const risk = detection?.risk ?? 'normal'
-  const showWarning = detection && !acknowledged && (scenario.category === 'fall' || scenario.id === 'night')
+  const showWarning = detection && !acknowledged && risk !== 'normal'
   const zone = ZONE[sample.zone].label
   const ended = time >= scenario.duration
   const [expandedView, setExpandedView] = useState<'plan' | 'cloud' | null>(null)

@@ -149,7 +149,7 @@ export function RoomDetails({ room, edit, remove, isConfirmed, confirm, recordin
         {lastLiveEvent && <p className="institution-analysis-time"><small>최근 경보</small>{lastLiveEvent.time} · {lastLiveEvent.type} · {isConfirmed(lastLiveEvent) ? '확인 완료' : '미확인'}</p>}
       </section>
     </div>}
-    <section aria-labelledby="institution-today"><div className="institution-section-head"><h2 id="institution-today">{publicDemo ? '생활 요약' : recording ? '실증 생활 요약' : date === INSTITUTION_DATE ? '오늘의 생활 요약' : '전날 생활 요약'}</h2>{!recording && <small>{date === INSTITUTION_DATE ? '오늘 00:00부터 마지막 갱신까지' : '전날 00:00부터 24:00까지'}</small>}</div>
+    <section aria-labelledby="institution-today"><div className="institution-section-head"><h2 id="institution-today">생활 리포트</h2>{!recording && <small>{date === INSTITUTION_DATE ? '오늘 00:00부터 마지막 갱신까지' : '전날 00:00부터 24:00까지'}</small>}</div>
       <div className="institution-stats institution-life-stats">
         {metrics.map(({ label, value, delta, unit, icon: Icon, tone }) => <article className="institution-panel institution-life-stat" key={label}>
           <span className={`timeline-${tone}`}><Icon size={20} /></span><div><small>{label}</small><strong>{recorded ? value : '—'}</strong>

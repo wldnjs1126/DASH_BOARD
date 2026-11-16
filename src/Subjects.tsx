@@ -37,8 +37,8 @@ export function RoomEditor({ room, rooms, save, close }: {
           <input {...input} value={details[key]} onChange={event => setDetails({ ...details, [key]: event.target.value })} />
         </label>)}
         <label>성별
-          <select value={details.gender} onChange={event => setDetails({ ...details, gender: event.target.value })}>
-            <option value="">선택 안 함</option><option>여성</option><option>남성</option><option>기타</option>
+          <select value={details.gender === '여성' || details.gender === '남성' ? details.gender : ''} onChange={event => setDetails({ ...details, gender: event.target.value })}>
+            <option value="">선택 안 함</option><option>여성</option><option>남성</option>
           </select>
         </label>
       </div>

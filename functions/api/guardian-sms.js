@@ -68,9 +68,13 @@ async function sendSms(env, phone, text) {
       method: 'POST',
       headers,
       body: JSON.stringify({ showMessageList: true, messages: [{ to: phone, from: env.SOLAPI_SENDER, text, type: 'SMS' }] }),
-      redirect: 'error',
+      // Workers supports manual redirect handling; do not forward SMS credentials to another URL.
+      redirect: 'manual',
       signal: AbortSignal.timeout(destination.token ? 10_000 : 8000),
     })
+    if (response.status >= 300 && response.status < 400) {
+      return { status: 'failed', detail: 'UnexpectedRedirect' }
+    }
     const data = await response.json().catch(() => null)
     const failed = Array.isArray(data?.failedMessageList) ? data.failedMessageList[0] : undefined
     const message = Array.isArray(data?.messageList) ? data.messageList[0] : undefined

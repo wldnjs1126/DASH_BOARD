@@ -29,7 +29,7 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
   Date.now = () => now
   globalThis.fetch = async (url, init) => {
     assert.equal(url, expectedUrl)
-    assert.equal(init.redirect, 'error')
+    assert.equal(init.redirect, 'manual')
     assert.equal(init.headers['X-CareWave-Relay-Token'], url === relayUrl ? relayToken : undefined)
     const body = JSON.parse(init.body)
     assert.equal(body.showMessageList, true)
@@ -150,6 +150,13 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
     now += relayTiming.delay
     assert.deepEqual(await call({ action: 'alert', token: relaySession }, origin, relayEnv), [200, { sms: 'accepted' }])
     assert.equal(sent.length, beforeRelay + 2)
+
+    providerStatus = 302
+    const [redirected, redirectError] = await call({ ...relayRequest, phone: '01012340013' }, origin, relayEnv)
+    assert.equal(redirected, 502)
+    assert.match(redirectError.error, /UnexpectedRedirect/)
+    assert.equal(redirectError.token, undefined)
+    assert.equal(sent.length, beforeRelay + 3)
   } finally {
     sqlite.close()
     Date.now = previousNow

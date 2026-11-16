@@ -431,9 +431,9 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
     const next = updateRoom(details, existing)
     saveRooms(existing ? rooms.map(entry => entry.id === existing.id ? next : entry) : [...rooms, next])
     setEditor(null)
-    if (existing && next.guardianPhone && screen === 'dashboard' && room?.id === next.id) {
+    if (existing) {
       stopSms()
-      setSmsRoom(next)
+      if (next.guardianPhone) setSmsRoom(next)
     }
   }
 

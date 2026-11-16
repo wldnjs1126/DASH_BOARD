@@ -102,7 +102,7 @@ async function start(env, body, request, now) {
   const key = await hmacKey(env.SOLAPI_API_SECRET)
   const expected = await crypto.subtle.sign('HMAC', key, encoder.encode(env.CAREWAVE_SMS_DEMO_CODE))
   if (!await crypto.subtle.verify('HMAC', key, expected, encoder.encode(body.pass))) return reply({ error: '체험 코드가 올바르지 않습니다.' }, 403)
-  const phone = typeof body.phone === 'string' ? body.phone.replace(/[\s-]/g, '') : ''
+  const phone = typeof body.phone === 'string' ? body.phone.normalize('NFKC').replace(/[\s()-]/g, '').replace(/^\+82(?:0)?(?=10\d{8}$)/, '0') : ''
   if (!/^010\d{8}$/.test(phone)) return reply({ error: '010 휴대전화 번호를 입력해 주세요.' }, 400)
   const room = typeof body.room === 'string' && /^\d{1,5}호?$/.test(body.room) ? body.room.replace(/호?$/, '호') : '등록 호실'
   const db = env.CAREWAVE_SMS_DB
@@ -124,9 +124,13 @@ async function start(env, body, request, now) {
   await db.prepare(`INSERT INTO sms_session (id, phone, code, room, state, expires) VALUES (?, ?, ?, ?, 'otp', ?)`)
     .bind(id, await encryptPhone(env.SOLAPI_API_SECRET, phone), digest, room, now + 5 * MINUTE).run()
   const { status: sms, detail } = await sendSms(env, phone, `[CareWave] 인증번호 ${code} (5분간 유효)`)
+  if (sms === 'unknown') {
+    // A timeout can occur after SOLAPI receives the request. Keep any delivered code usable.
+    return reply({ token, notice: '문자 접수 상태를 확인하지 못했습니다. 인증번호가 도착하면 입력하고, 도착하지 않으면 잠시 후 다시 요청해 주세요.' })
+  }
   if (sms !== 'accepted') {
     await db.prepare(`DELETE FROM sms_session WHERE id = ?`).bind(id).run()
-    if (sms !== 'unknown') await db.prepare('DELETE FROM sms_limit WHERE bucket = ?').bind(cooldown.bucket).run()
+    await db.prepare('DELETE FROM sms_limit WHERE bucket = ?').bind(cooldown.bucket).run()
     const errors = {
       credentials: '문자 서비스 인증이 실패했습니다. Cloudflare에 등록한 SOLAPI API 키와 시크릿을 확인해 주세요.',
       sourceIp: 'SOLAPI가 발송 서버의 IP를 차단했습니다. API 키의 허용 IP에 발송 서버의 고정 공인 IP를 등록해야 합니다.',
@@ -135,7 +139,6 @@ async function start(env, body, request, now) {
       sender: 'SOLAPI에 등록된 발신번호가 아닙니다. 발신번호 등록 상태를 확인해 주세요.',
       balance: 'SOLAPI 잔액이 부족하거나 잔액 차감에 실패했습니다. 콘솔에서 잔액을 확인해 주세요.',
       failed: 'SOLAPI가 인증 문자 요청을 거절했습니다. 발송 내역에서 오류 코드를 확인해 주세요.',
-      unknown: '인증 문자 접수 상태를 확인하지 못했습니다. 문자가 도착하는지 먼저 확인해 주세요.',
     }
     return reply({ error: `${errors[sms]}${detail ? ` (SOLAPI ${detail})` : ''}` }, 502)
   }
@@ -167,10 +170,13 @@ export async function onRequestPost({ request, env }) {
       const kind = crypto.getRandomValues(new Uint8Array(1))[0] % 2 ? 'danger' : 'caution'
       const delay = 8_000 + crypto.getRandomValues(new Uint32Array(1))[0] % 10_001
       const digest = await sign(env.SOLAPI_API_SECRET, `${id}:${body.code}`)
-      const armed = await db.prepare(`UPDATE sms_session SET state = 'armed', code = NULL, kind = ?, due = ?, expires = ?
+      const armed = await db.prepare(`UPDATE sms_session SET state = 'armed', kind = ?, due = ?, expires = ?
         WHERE id = ? AND state = 'otp' AND attempts < 5 AND expires > ? AND code = ? RETURNING id`)
         .bind(kind, now + delay, now + 40_000, id, now, digest).first()
       if (armed) return reply({ kind, delay })
+      const existing = await db.prepare(`SELECT kind, due FROM sms_session
+        WHERE id = ? AND state = 'armed' AND expires > ? AND code = ?`).bind(id, now, digest).first()
+      if (existing) return reply({ kind: existing.kind, delay: Math.max(0, existing.due - now) })
       await db.prepare(`UPDATE sms_session SET attempts = attempts + 1, phone = CASE WHEN attempts = 4 THEN NULL ELSE phone END
         WHERE id = ? AND state = 'otp' AND attempts < 5`).bind(id).run()
       return reply({ error: '인증번호가 맞지 않거나 만료되었습니다.' }, 400)

@@ -56,8 +56,10 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
     assert.equal((await call({ action: 'verify', token, code: '11111' }))[0], 400)
     const [verified, { delay, kind }] = await call({ action: 'verify', token, code: codeOf(sent[0]) })
     assert.equal(verified, 200)
+    now += 1000
+    assert.deepEqual(await call({ action: 'verify', token, code: codeOf(sent[0]) }), [200, { kind, delay: delay - 1000 }])
     assert.equal((await call({ action: 'alert', token }))[0], 409)
-    now += delay
+    now += delay - 1000
     const deliveries = await Promise.all([call({ action: 'alert', token }), call({ action: 'alert', token })])
     assert.deepEqual(deliveries.map(([status]) => status).sort(), [200, 409])
     assert.equal(sent.length, 2)
@@ -114,6 +116,14 @@ test('guardian SMS verifies the number, claims one alert, and honors cancellatio
       sms: 'failed', smsDetail: '발송 서버 IP 차단 · SOLAPI Forbidden',
     }])
     assert.equal((await call({ action: 'alert', token: alertSession.token }))[0], 409)
+
+    providerStatus = 503
+    providerResult = { errorCode: 'ServiceUnavailable' }
+    const [uncertain, otp] = await start('+82 (10) 1234-0011')
+    assert.equal(uncertain, 200)
+    assert.match(otp.notice, /인증번호가 도착하면 입력/)
+    assert.equal(sent.at(-1).to, '01012340011')
+    assert.equal((await call({ action: 'verify', token: otp.token, code: codeOf(sent.at(-1)) }))[0], 200)
   } finally {
     sqlite.close()
     Date.now = previousNow

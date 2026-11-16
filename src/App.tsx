@@ -322,7 +322,8 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
       setRoute(next)
     }
     function stopWhenHidden() {
-      if (document.hidden) stopOnLeave()
+      // Opening the messaging app to read the code hides this tab during verification.
+      if (document.hidden) stopSms()
     }
     window.addEventListener('hashchange', syncRoute)
     window.addEventListener('pagehide', stopOnLeave)
@@ -461,7 +462,7 @@ export function App({ experiment = null, publicDemo = false }: { experiment?: Ex
     }} />
     <div className="care-content">
       {storageError && <p className="care-storage-error" role="status">브라우저 저장소를 사용할 수 없어 변경 내용이 이 탭에서만 유지됩니다.</p>}
-      {smsArmed && <div className="care-sms-status"><span role="status">인증 완료. 등록한 호실의 첫 알림에만 문자를 보냅니다.</span><button type="button" onClick={stopSms}>문자 체험 중단</button></div>}
+      {smsArmed && <div className="care-sms-status"><span role="status">인증 완료. 첫 알림이 뜰 때까지 이 화면을 열어 두세요.</span><button type="button" onClick={stopSms}>문자 체험 중단</button></div>}
       {room && !showReport ? <RoomDetailHeader room={room} recording={recording} subtitle={headerSubtitle} /> : <header className="institution-header">
         <div><p className="institution-header-title">비카메라 센서 기반 시니어 생활패턴 AI 위험감지 서비스</p>
           <p className="institution-header-subtitle">{headerSubtitle}</p>

@@ -74,7 +74,7 @@ export function Subjects({ rooms, add, edit, remove }: {
             <button type="button" className="institution-secondary subject-danger" onClick={() => remove(room)} aria-label={`${roomLabel(room)} 삭제`}><Trash2 size={14} />삭제</button></div></td>
         </tr>)}{rooms.length === 0 && <tr><td colSpan={3} className="institution-empty">등록된 호실이 없습니다.</td></tr>}</tbody>
       </table></div>
-      <p className="subjects-note">호실과 대상자 정보는 이 브라우저에 저장됩니다.</p>
+      <p className="subjects-note">호실과 대상자 정보는 이 브라우저에 저장됩니다. 보호자 이름과 연락처는 현재 탭에서만 유지됩니다.</p>
     </section>
   </main>
 }

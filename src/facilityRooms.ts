@@ -7,6 +7,40 @@ const STORAGE_KEY = 'carewave.institution.rooms.v1'
 const EXPERIMENT_STORAGE_KEY = 'carewave.institution.experiment-rooms.v1'
 const numberOrNull = (value: string) => value === '' ? null : Number(value)
 
+function withoutGuardian(room: RoomRecord): RoomRecord {
+  const { guardian, guardianPhone, ...roomDetails } = room
+  return roomDetails
+}
+
+function readStoredRooms(storageKey: string): RoomRecord[] | undefined {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? 'null')
+    if (!Array.isArray(saved)) return
+    const rooms: RoomRecord[] = saved
+    if (!rooms.some(room => 'guardian' in room || 'guardianPhone' in room)) return rooms
+    const cleaned = rooms.map(withoutGuardian)
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(cleaned))
+    } catch { /* Ignore legacy contacts even if cleanup is blocked. */ }
+    return cleaned
+  } catch { /* Use the default rooms if browser storage is unavailable. */ }
+}
+
+function restoreTabContacts(rooms: RoomRecord[], key: string): RoomRecord[] {
+  try {
+    const contacts = JSON.parse(sessionStorage.getItem(key) ?? '{}')
+    return rooms.map(room => {
+      const contact = Object.hasOwn(contacts, room.id) ? contacts[room.id] : null
+      if (!contact) return room
+      return {
+        ...room,
+        guardian: typeof contact.guardian === 'string' ? contact.guardian : '',
+        guardianPhone: typeof contact.guardianPhone === 'string' ? contact.guardianPhone : '',
+      }
+    })
+  } catch { return rooms }
+}
+
 export function roomLabelKey(label: string) {
   return label.normalize('NFKC').trim().replace(/\s+/g, ' ').replace(/^(\d+)\s*호$/, '$1').toLowerCase()
 }
@@ -29,31 +63,41 @@ export function updateRoom(details: SubjectDetails, room?: RoomRecord): RoomReco
 }
 
 export function readFacilityRooms(initialRooms?: RoomRecord[]): RoomRecord[] {
-  try {
-    const saved: unknown = JSON.parse(localStorage.getItem(initialRooms ? EXPERIMENT_STORAGE_KEY : STORAGE_KEY) ?? 'null')
-    if (Array.isArray(saved)) return (saved as RoomRecord[]).map(room => {
+  const standardRooms = readStoredRooms(STORAGE_KEY)
+  const experimentRooms = readStoredRooms(EXPERIMENT_STORAGE_KEY)
+  const legacySubjects = readDirectory().subjects
+  const key = initialRooms ? EXPERIMENT_STORAGE_KEY : STORAGE_KEY
+  const saved = initialRooms ? experimentRooms : standardRooms
+  if (saved) {
+    const updated = saved.map(room => {
       if (room.age != null || room.gender || room.height != null || room.weight != null) return room
       const initial = initialRooms?.find(entry => entry.id === room.id && entry.name === room.name)
       if (!initial) return room
       const { age, gender, height, weight } = initial
       return { ...room, age, gender, height, weight }
     })
-  } catch { /* Use the initial rooms if browser storage is unavailable. */ }
-  if (initialRooms) return initialRooms
+    return restoreTabContacts(updated, key)
+  }
+  if (initialRooms) return restoreTabContacts(initialRooms.map(withoutGuardian), key)
 
   const rooms = [...ROOMS]
-  for (const subject of readDirectory().subjects) {
+  for (const subject of legacySubjects) {
     if (subject.id === DEMO_SUBJECT_ID) continue
     const index = rooms.findIndex(room => roomLabelKey(roomLabel(room)) === roomLabelKey(subject.room))
     if (index >= 0) rooms[index] = updateRoom(subject, rooms[index])
     else rooms.push(updateRoom(subject, { id: subject.id, name: '', age: null, gender: '', height: null, weight: null,
       level: 'unknown', occupied: false, online: false, reason: '아직 센서와 생활 기록이 연결되지 않았습니다.' }))
   }
-  return rooms
+  return restoreTabContacts(rooms.map(withoutGuardian), key)
 }
 
 export function writeFacilityRooms(rooms: RoomRecord[], experiment = false) {
-  localStorage.setItem(experiment ? EXPERIMENT_STORAGE_KEY : STORAGE_KEY, JSON.stringify(rooms))
+  const key = experiment ? EXPERIMENT_STORAGE_KEY : STORAGE_KEY
+  localStorage.setItem(key, JSON.stringify(rooms.map(withoutGuardian)))
+  const contacts = rooms.filter(room => room.guardian || room.guardianPhone)
+    .map(({ id, guardian, guardianPhone }) => [id, { guardian, guardianPhone }])
+  if (contacts.length) sessionStorage.setItem(key, JSON.stringify(Object.fromEntries(contacts)))
+  else sessionStorage.removeItem(key)
 }
 
 export function roomRowSizes(count: number, columns: number) {

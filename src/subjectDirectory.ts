@@ -21,6 +21,10 @@ export const EMPTY_DETAILS: SubjectDetails = {
 export const DEMO_SUBJECT: Subject = { ...EMPTY_DETAILS, id: DEMO_SUBJECT_ID, name: ROOM.subject, room: ROOM.name }
 const STORAGE_KEY = 'carewave.subjects.v1'
 
+function clearGuardianContacts(subjects: Subject[]): Subject[] {
+  return subjects.map(subject => ({ ...subject, guardian: '', guardianPhone: '' }))
+}
+
 export function readDirectory(): SubjectDirectory {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
@@ -28,7 +32,13 @@ export function readDirectory(): SubjectDirectory {
       const directory = JSON.parse(stored) as SubjectDirectory
       if (Array.isArray(directory.subjects)) {
         const selected = directory.subjects.find(subject => subject.id === directory.selectedId) ?? directory.subjects[0]
-        return { subjects: directory.subjects, selectedId: selected?.id ?? null }
+        const result = { subjects: clearGuardianContacts(directory.subjects), selectedId: selected?.id ?? null }
+        if (directory.subjects.some(subject => subject.guardian || subject.guardianPhone)) {
+          try {
+            writeDirectory(result)
+          } catch { /* Ignore legacy contacts even if cleanup is blocked. */ }
+        }
+        return result
       }
     }
   } catch {
@@ -38,5 +48,5 @@ export function readDirectory(): SubjectDirectory {
 }
 
 export function writeDirectory(directory: SubjectDirectory) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(directory))
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...directory, subjects: clearGuardianContacts(directory.subjects) }))
 }

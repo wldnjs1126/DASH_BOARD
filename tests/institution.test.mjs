@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { ALERTS, getFacilityStats, getRoomDay, getRoomHistory, INSTITUTION_DATE, isDemoLogin, PREVIOUS_DATE, ROOMS } from '../src/institutionData.ts'
-import { roomLabelKey, roomRowSizes, roomSubject, updateRoom } from '../src/facilityRooms.ts'
+import { readFacilityRooms, roomLabelKey, roomRowSizes, roomSubject, updateRoom, writeFacilityRooms } from '../src/facilityRooms.ts'
 
 test('기관 시연 계정은 아이디와 비밀번호가 모두 일치해야 한다', () => {
   assert.equal(isDemoLogin('carewave', 'carewave'), true)
@@ -37,6 +37,42 @@ test('호실 수가 달라져도 각 행이 비슷한 개수의 카드로 채워
   assert.deepEqual(roomRowSizes(3, 5), [3])
   assert.deepEqual(roomRowSizes(11, 5), [4, 4, 3])
   assert.deepEqual(roomRowSizes(11, 2), [2, 2, 2, 2, 2, 1])
+})
+
+test('보호자 연락처는 현재 탭에서만 유지되고 기존 브라우저 저장소에서 지워진다', () => {
+  const storage = () => {
+    const values = new Map()
+    return { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) }
+  }
+  const previous = Object.fromEntries(['localStorage', 'sessionStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]))
+  const setStorage = (key, value) => Object.defineProperty(globalThis, key, { value, configurable: true })
+  const roomKey = 'carewave.institution.experiment-rooms.v1'
+  const legacyKey = 'carewave.subjects.v1'
+  const room = { ...ROOMS[0], name: '수정한 대상자', guardian: '보호자', guardianPhone: '01000000000' }
+
+  try {
+    setStorage('localStorage', storage())
+    setStorage('sessionStorage', storage())
+    localStorage.setItem(roomKey, JSON.stringify([room]))
+    localStorage.setItem(legacyKey, JSON.stringify({ subjects: [roomSubject(room)], selectedId: room.id }))
+    assert.equal(roomSubject(readFacilityRooms(ROOMS)[0]).guardianPhone, '')
+    assert.equal(JSON.parse(localStorage.getItem(roomKey))[0].guardianPhone, undefined)
+    assert.equal(JSON.parse(localStorage.getItem(legacyKey)).subjects[0].guardian, '')
+
+    writeFacilityRooms([room], true)
+    assert.equal(roomSubject(readFacilityRooms(ROOMS)[0]).guardianPhone, room.guardianPhone)
+    assert.equal(roomSubject(readFacilityRooms(ROOMS)[0]).guardian, room.guardian)
+    setStorage('sessionStorage', storage())
+    const freshTab = roomSubject(readFacilityRooms(ROOMS)[0])
+    assert.equal(freshTab.guardianPhone, '')
+    assert.equal(freshTab.guardian, '')
+    assert.equal(freshTab.name, room.name)
+  } finally {
+    for (const [key, descriptor] of Object.entries(previous)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor)
+      else delete globalThis[key]
+    }
+  }
 })
 
 test('각 병실과 날짜의 요약은 겹치지 않는 타임라인 구간으로 계산된다', () => {

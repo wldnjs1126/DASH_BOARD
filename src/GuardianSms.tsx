@@ -4,14 +4,24 @@ import { ViewDialog } from './visuals.tsx'
 
 export type SmsKind = 'caution' | 'danger'
 export type SmsResult = 'accepted' | 'failed' | 'unknown'
-type SmsResponse = { token?: string; kind?: SmsKind; delay?: number; sms?: SmsResult; smsDetail?: string; notice?: string; unconfirmed?: boolean; error?: string }
+type SmsResponse = { token?: string; kind?: SmsKind; delay?: number; sms?: SmsResult; smsDetail?: string; notice?: string; unconfirmed?: boolean; retryAfter?: number; error?: string }
+
+class SmsRequestError extends Error {
+  retryAfter: number
+  constructor(message: string, retryAfter = 0) {
+    super(message)
+    this.retryAfter = retryAfter
+  }
+}
 
 export async function guardianSms(body: object): Promise<SmsResponse> {
   const response = await fetch('/api/guardian-sms', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   })
   const result: SmsResponse = await response.json().catch(() => ({}))
-  if (!response.ok || !Object.keys(result).length) throw new Error(result.error ?? '현재 문자 체험을 사용할 수 없습니다.')
+  if (!response.ok || !Object.keys(result).length) {
+    throw new SmsRequestError(result.error ?? '현재 문자 체험을 사용할 수 없습니다.', result.retryAfter)
+  }
   return result
 }
 
@@ -31,9 +41,20 @@ export function GuardianSmsDialog({ phone, room, arm, close }: {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [unconfirmed, setUnconfirmed] = useState(false)
+  const [retryAt, setRetryAt] = useState(0)
+  const [remaining, setRemaining] = useState(0)
+  const submitting = useRef(false)
   const cancelled = useRef(false)
   const pendingToken = useRef('')
   const accessCode = useRef('')
+
+  useEffect(() => {
+    if (!retryAt) return
+    const tick = () => setRemaining(Math.max(0, Math.ceil((retryAt - Date.now()) / 1000)))
+    tick()
+    const timer = window.setInterval(tick, 1000)
+    return () => window.clearInterval(timer)
+  }, [retryAt])
 
   useEffect(() => {
     cancelled.current = false
@@ -59,17 +80,23 @@ export function GuardianSmsDialog({ phone, room, arm, close }: {
     setValue('')
     setNotice(result.notice ?? '문자 요청이 접수되었습니다. 받은 6자리 인증번호를 입력해 주세요.')
     setUnconfirmed(result.unconfirmed === true)
+    setRetryAt(Date.now() + 60_000)
   }
 
   async function run(task: () => Promise<void>) {
-    if (busy) return
+    if (submitting.current) return
+    submitting.current = true
     setBusy(true)
     setError('')
     try {
       await task()
     } catch (error) {
-      if (!cancelled.current) setError(error instanceof Error ? error.message : '다시 시도해 주세요.')
+      if (!cancelled.current) {
+        setError(error instanceof Error ? error.message : '다시 시도해 주세요.')
+        if (error instanceof SmsRequestError && error.retryAfter > 0) setRetryAt(Date.now() + error.retryAfter * 1000)
+      }
     } finally {
+      submitting.current = false
       if (!cancelled.current) setBusy(false)
     }
   }
@@ -97,8 +124,8 @@ export function GuardianSmsDialog({ phone, room, arm, close }: {
       {notice && <p className={unconfirmed ? 'room-form-error' : undefined} role="status">{notice}</p>}
       {error && <p className="room-form-error" role="alert">{error}</p>}
       <div className="subject-actions"><button type="button" className="subject-button" onClick={close}>닫기</button>
-        {token && <button type="button" className="subject-button" disabled={busy} onClick={() => { void run(() => requestCode(accessCode.current)) }}>인증 문자 다시 받기</button>}
-        <button type="submit" className="subject-button subject-primary" disabled={busy}>{busy ? '처리 중…' : token ? '인증하고 체험 시작' : '인증 문자 받기'}</button></div>
+        {token && <button type="button" className="subject-button" disabled={busy || remaining > 0} onClick={() => { void run(() => requestCode(accessCode.current)) }}>{remaining > 0 ? `${remaining}초 후 다시 받기` : '인증 문자 다시 받기'}</button>}
+        <button type="submit" className="subject-button subject-primary" disabled={busy || (!token && remaining > 0)}>{busy ? '처리 중…' : token ? '인증하고 체험 시작' : remaining > 0 ? `${remaining}초 후 요청 가능` : '인증 문자 받기'}</button></div>
     </form>
   </ViewDialog>
 }

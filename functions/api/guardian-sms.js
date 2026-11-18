@@ -122,7 +122,12 @@ async function quota(db, key, now, limit, windowSize) {
 function retryMessage(expires, now) {
   const seconds = Math.max(1, Math.ceil((expires - now) / 1000))
   const remaining = seconds < 60 ? `약 ${seconds}초` : `약 ${Math.ceil(seconds / 60)}분`
-  return reply({ error: `인증 문자 요청 한도에 도달했습니다. ${remaining} 후 다시 시도해 주세요.` }, 429)
+  return reply({ error: `인증 문자 요청 한도에 도달했습니다. ${remaining} 후 다시 시도해 주세요.`, retryAfter: seconds }, 429)
+}
+
+async function releaseQuota(db, buckets) {
+  if (!buckets.length) return
+  await db.batch(buckets.map(bucket => db.prepare('UPDATE sms_limit SET count = MAX(0, count - 1) WHERE bucket = ?').bind(bucket)))
 }
 
 async function start(env, body, request, now) {
@@ -138,12 +143,17 @@ async function start(env, body, request, now) {
   await db.batch(['sms_session', 'sms_limit'].map(table => db.prepare(`DELETE FROM ${table} WHERE expires <= ?`).bind(now)))
   const ip = await sign(env.SOLAPI_API_SECRET, `ip:${request.headers.get('CF-Connecting-IP') ?? 'local'}`)
   const phoneKey = await sign(env.SOLAPI_API_SECRET, `phone:${phone}`)
-  const cooldown = await quota(db, `cooldown:${phoneKey}`, now, 1, MINUTE)
-  if (!cooldown.allowed) return retryMessage(cooldown.expires, now)
-  const limits = [[`phone:${phoneKey}`, 3, 10 * MINUTE], [`ip:${ip}`, 12, 10 * MINUTE], ['total', 50, 60 * MINUTE]]
+  // A shared presentation Wi-Fi must not impose a smaller limit than the facility total.
+  const limits = [[`cooldown:${phoneKey}`, 1, MINUTE], [`phone:${phoneKey}`, 3, 10 * MINUTE],
+    [`ip:${ip}`, 50, 10 * MINUTE], ['total', 50, 60 * MINUTE]]
+  const buckets = []
   for (const [key, maximum, windowSize] of limits) {
     const result = await quota(db, key, now, maximum, windowSize)
-    if (!result.allowed) return retryMessage(result.expires, now)
+    if (!result.allowed) {
+      await releaseQuota(db, buckets)
+      return retryMessage(result.expires, now)
+    }
+    buckets.push(result.bucket)
   }
   const token = crypto.randomUUID()
   const id = await sign(env.SOLAPI_API_SECRET, token)
@@ -162,7 +172,8 @@ async function start(env, body, request, now) {
   }
   if (sms !== 'accepted') {
     await db.prepare(`DELETE FROM sms_session WHERE id = ?`).bind(id).run()
-    await db.prepare('DELETE FROM sms_limit WHERE bucket = ?').bind(cooldown.bucket).run()
+    // Rejected messages were never accepted. They must not consume successful-send quotas.
+    await releaseQuota(db, buckets)
     const errors = {
       credentials: '문자 서비스 인증이 실패했습니다. Cloudflare에 등록한 SOLAPI API 키와 시크릿을 확인해 주세요.',
       sourceIp: 'SOLAPI가 발송 서버의 IP를 차단했습니다. API 키의 허용 IP에 발송 서버의 고정 공인 IP를 등록해야 합니다.',

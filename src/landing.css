@@ -159,13 +159,16 @@
 .landing-benefits h3, .landing-steps h4 { margin: 10px 0 6px; font-size: 16px; letter-spacing: -.04em; }
 .landing-benefits p, .landing-steps p { color: var(--landing-muted); font-size: 14px; line-height: 1.7; }
 .landing-workflow { padding-block: clamp(34px, 4.8vw, 62px) clamp(29px, 4.1vw, 54px); }
-.landing-workflow-heading {
-  display: grid; grid-template-columns: minmax(0, max-content) clamp(112px, 24vw, 255px);
-  align-items: center; column-gap: clamp(12px, 3vw, 34px);
-}
-.landing-workflow-heading > h3 { grid-column: 1; grid-row: 1; align-self: end; }
-.landing-workflow-heading > p { grid-column: 1; grid-row: 2; align-self: start; }
-.landing-workflow-sensor { grid-column: 2; grid-row: 1 / span 2; display: block; width: 100%; height: auto; }
+.landing-hardware { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 24px; }
+.landing-hardware article { min-width: 0; padding: 20px; border: 1px solid var(--landing-line); border-radius: 12px; background: #f5f9fb; }
+.landing-hardware-photo { height: 128px; display: grid; place-items: center; margin-bottom: 16px; }
+.landing-hardware-photo img { display: block; width: min(100%, 300px); height: auto; max-height: 128px; object-fit: contain; }
+.landing-hardware-photo .landing-hardware-wifi { width: 156px; max-height: 128px; }
+.landing-hardware h3 { font-size: 18px; color: var(--landing-ink); margin: 0; }
+.landing-hardware p { color: var(--landing-muted); font-size: 14px; line-height: 1.7; margin-top: 8px; }
+.landing-hardware .landing-hardware-role { color: #167253; font-weight: 700; margin-top: 4px; }
+.landing-hardware a { display: inline-block; color: #317491; font-size: 12px; margin-top: 12px; }
+@media (max-width: 650px) { .landing-hardware { grid-template-columns: 1fr; gap: 12px; } }
 .landing-steps {
   display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); list-style: none;
   gap: 20px; margin: 24px 0 23px; padding: 0;

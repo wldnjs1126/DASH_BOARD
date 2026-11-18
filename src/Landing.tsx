@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { Brand } from './Brand.tsx'
 import sensorPhoto from './mmwave-sensor.png'
+import wifiPhoto from './xiao-esp32-c6.png'
 import { Room3D } from './Room3D.tsx'
 import { frameAt, historyAt, ROOM, SCENARIO_BY_ID, ZONE } from './scenarios.ts'
 import { FloorPlan } from './visuals.tsx'
@@ -221,6 +222,41 @@ export function Landing({ dashboardPreview, signedIn }: { dashboardPreview: Reac
         <div className="landing-shell landing-detail-section">
           <div className="landing-section-heading">
             <h2 id="technology-title" className="landing-group-title">기술 소개</h2>
+            <p className="landing-section-subtitle">움직임을 감지하는 센서와 데이터를 연결하는 통신 모듈</p>
+          </div>
+          <div className="landing-hardware">
+            <article>
+              <div className="landing-hardware-photo"><img src={sensorPhoto} alt="레이더 센서 보드" width={543} height={181} loading="lazy" decoding="async" /></div>
+              <div><h3>IWR6843AOPEVM</h3><p className="landing-hardware-role">mmWave 레이더 센서</p>
+                <p>60GHz 대역의 전파로 대상의 거리와 움직임을 감지하는 센서입니다. 카메라 촬영 없이 위치와 높이 변화를 점군 데이터로 파악합니다.</p>
+                <a href="https://www.ti.com/tool/IWR6843AOPEVM" target="_blank" rel="noreferrer">TI 제품 정보 ↗</a></div>
+            </article>
+            <article>
+              <div className="landing-hardware-photo"><img className="landing-hardware-wifi" src={wifiPhoto} alt="Seeed Studio XIAO ESP32-C6 통신 보드" width={320} height={320} loading="lazy" decoding="async" /></div>
+              <div><h3>XIAO ESP32-C6</h3><p className="landing-hardware-role">Wi-Fi 통신 모듈</p>
+                <p>Wi-Fi를 갖춘 소형 마이크로컨트롤러 보드입니다. 센서에서 수집한 데이터를 무선으로 전달해 모니터링 시스템과 연결하는 역할을 합니다.</p>
+                <a href="https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/" target="_blank" rel="noreferrer">Seeed Studio 제품 정보 ↗</a></div>
+            </article>
+          </div>
+        </div>
+
+        <section id="how-it-works" className="landing-shell landing-workflow" aria-labelledby="workflow-title">
+          <div className="landing-section-heading">
+            <h3 className="landing-subsection-title" id="workflow-title">작동 방식</h3>
+            <p className="landing-section-subtitle">센서 신호가 돌봄 정보로 바뀌는 과정</p>
+          </div>
+          <ol className="landing-steps">
+            {stages.map(({ icon: Icon, title, text }, index) =>
+              <li key={title}><span className="landing-step-icon"><Icon aria-hidden="true" /></span><h4>{title}</h4><p>{text}</p>
+                {index < stages.length - 1 && <ChevronRight className="landing-step-arrow" size={18} aria-hidden="true" />}
+              </li>,
+            )}
+          </ol>
+        </section>
+
+        <section className="landing-shell landing-detail-section" aria-labelledby="simulation-title">
+          <div className="landing-section-heading">
+            <h3 id="simulation-title" className="landing-subsection-title">시뮬레이션</h3>
             <p className="landing-section-subtitle">레이더가 감지한 움직임을 2D·3D로 확인합니다</p>
             <p>이벤트를 누르면 이동 경로와 3D 점군, 높이와 속도 그래프가 함께 움직입니다.</p>
           </div>
@@ -232,21 +268,6 @@ export function Landing({ dashboardPreview, signedIn }: { dashboardPreview: Reac
             </div>
             {dashboardPreview}
           </div>
-        </div>
-
-        <section id="how-it-works" className="landing-shell landing-workflow" aria-labelledby="workflow-title">
-          <div className="landing-section-heading landing-workflow-heading">
-            <h3 className="landing-subsection-title" id="workflow-title">작동 방식</h3>
-            <p className="landing-section-subtitle">센서 신호가 돌봄 정보로 바뀌는 과정</p>
-            <img className="landing-workflow-sensor" src={sensorPhoto} alt="mmWave 레이더 센서 보드" width={543} height={181} loading="lazy" decoding="async" />
-          </div>
-          <ol className="landing-steps">
-            {stages.map(({ icon: Icon, title, text }, index) =>
-              <li key={title}><span className="landing-step-icon"><Icon aria-hidden="true" /></span><h4>{title}</h4><p>{text}</p>
-                {index < stages.length - 1 && <ChevronRight className="landing-step-arrow" size={18} aria-hidden="true" />}
-              </li>,
-            )}
-          </ol>
         </section>
 
         <section id="features" className="landing-service" aria-labelledby="features-title">
